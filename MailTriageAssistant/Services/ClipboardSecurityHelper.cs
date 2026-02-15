@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Threading;
 using Microsoft.Extensions.Logging;
@@ -12,6 +13,8 @@ public sealed class ClipboardSecurityHelper : IDisposable
     private readonly ILogger<ClipboardSecurityHelper> _logger;
     private DispatcherTimer? _clearTimer;
     private string? _copiedContent;
+    private uint _copiedSequenceNumber;
+    private bool _hasCopiedSequenceNumber;
     private bool _disposed;
 
     public ClipboardSecurityHelper(RedactionService redactionService)
@@ -44,6 +47,8 @@ public sealed class ClipboardSecurityHelper : IDisposable
             dataObj.SetData(DataFormats.UnicodeText, content);
             dataObj.SetData("ExcludeClipboardContentFromMonitorProcessing", true);
             Clipboard.SetDataObject(dataObj, false);
+            _copiedSequenceNumber = GetClipboardSequenceNumber();
+            _hasCopiedSequenceNumber = true;
             StartClearTimer();
         });
 
@@ -59,6 +64,8 @@ public sealed class ClipboardSecurityHelper : IDisposable
 
         _disposed = true;
         _copiedContent = null;
+        _hasCopiedSequenceNumber = false;
+        _copiedSequenceNumber = 0;
 
         if (_clearTimer is null)
         {
@@ -92,6 +99,16 @@ public sealed class ClipboardSecurityHelper : IDisposable
         try
         {
             var cleared = false;
+            if (_copiedContent is not null && _hasCopiedSequenceNumber)
+            {
+                var currentSequence = GetClipboardSequenceNumber();
+                if (currentSequence != _copiedSequenceNumber)
+                {
+                    _logger.LogInformation("Clipboard clear skipped (sequence changed).");
+                    return;
+                }
+            }
+
             if (_copiedContent is not null &&
                 Clipboard.ContainsText() &&
                 string.Equals(Clipboard.GetText(), _copiedContent, StringComparison.Ordinal))
@@ -111,6 +128,11 @@ public sealed class ClipboardSecurityHelper : IDisposable
         finally
         {
             _copiedContent = null;
+            _hasCopiedSequenceNumber = false;
+            _copiedSequenceNumber = 0;
         }
     }
+
+    [DllImport("user32.dll")]
+    private static extern uint GetClipboardSequenceNumber();
 }
