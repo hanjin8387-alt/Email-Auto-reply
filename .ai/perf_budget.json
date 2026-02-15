@@ -1,0 +1,9 @@
+{
+  "startup_ms": 2500,
+  "header_load_ms": 1500,
+  "body_load_ms": 300,
+  "prefetch_ms": 2000,
+  "digest_ms": 500,
+  "memory_mb": 150,
+  "publish_size_mb": 25
+}

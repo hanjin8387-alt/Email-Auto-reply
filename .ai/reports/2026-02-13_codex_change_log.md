@@ -96,3 +96,13 @@ Plan: `.ai/plans/2026-02-13_perf_master_plan.md`
 - **Perf Before**: n/a
 - **Perf After**: n/a
 - **Notes**: Debug-only; writes `%LOCALAPPDATA%\\MailTriageAssistant\\perf_metrics.json` containing timings + startup/exit memory.
+
+## [0-7] bench: Add perf_budget.json
+- **Status**: OK Committed
+- **Files**: `.ai/perf_budget.json`
+- **Lines**: +9 / -0
+- **Build**: OK (0 warnings)
+- **Test**: OK (107/107 passed)
+- **Perf Before**: n/a
+- **Perf After**: n/a
+- **Notes**: Added perf budget guardrails for manual regression checks.
