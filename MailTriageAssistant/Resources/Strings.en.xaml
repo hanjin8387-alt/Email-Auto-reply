@@ -1,0 +1,51 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+    <sys:String x:Key="Str.MainWindow.Title">Mail Triage Assistant</sys:String>
+
+    <sys:String x:Key="Str.Button.LoadEmails">Run Triage</sys:String>
+    <sys:String x:Key="Str.Button.GenerateDigestTeams">Copy Digest + Open Teams</sys:String>
+
+    <sys:String x:Key="Str.Label.TeamsUserEmail">Teams user email:</sys:String>
+
+    <sys:String x:Key="Str.Tooltip.LoadEmails">Load recent inbox emails from Outlook and compute priority.</sys:String>
+    <sys:String x:Key="Str.Tooltip.GenerateDigestTeams">Copy a digest of top-priority emails and open Teams.</sys:String>
+    <sys:String x:Key="Str.Tooltip.TeamsUserEmail">Optional: user email address to open a chat in Teams.</sys:String>
+
+    <sys:String x:Key="Str.Automation.LoadEmails">Run triage</sys:String>
+    <sys:String x:Key="Str.Automation.GenerateDigestTeams">Copy digest and open Teams</sys:String>
+    <sys:String x:Key="Str.Automation.TeamsUserEmailInput">Teams user email input</sys:String>
+
+    <sys:String x:Key="Str.Header.PriorityEmails">Priority Emails</sys:String>
+    <sys:String x:Key="Str.Automation.CategoryFilter">Category filter</sys:String>
+    <sys:String x:Key="Str.Tooltip.CategoryFilter">Show only emails of the selected category.</sys:String>
+    <sys:String x:Key="Str.Automation.EmailList">Email list</sys:String>
+    <sys:String x:Key="Str.Tooltip.EmailList">Email list sorted by priority.</sys:String>
+
+    <sys:String x:Key="Str.Text.AttachmentMarker">  📎</sys:String>
+    <sys:String x:Key="Str.Tooltip.Attachment">Has attachments</sys:String>
+
+    <sys:String x:Key="Str.Empty.EmailList.Title">No emails to show</sys:String>
+    <sys:String x:Key="Str.Empty.EmailList.Body">Click 'Run Triage' to load messages from Outlook.</sys:String>
+
+    <sys:String x:Key="Str.Label.RedactedSummary">Redacted Body Summary</sys:String>
+
+    <sys:String x:Key="Str.Label.ReplyTemplate">Reply template</sys:String>
+    <sys:String x:Key="Str.Automation.ReplyTemplateSelect">Reply template select</sys:String>
+    <sys:String x:Key="Str.Tooltip.ReplyTemplateSelect">Create an Outlook reply draft using the selected template.</sys:String>
+
+    <sys:String x:Key="Str.Button.OpenInOutlook">Open in Outlook</sys:String>
+    <sys:String x:Key="Str.Tooltip.OpenInOutlook">Open the selected email in Classic Outlook.</sys:String>
+
+    <sys:String x:Key="Str.Button.CopyForCopilot">Copy for Copilot</sys:String>
+    <sys:String x:Key="Str.Tooltip.CopyForCopilot">Copy the selected email's redacted summary to the clipboard. (Auto-clear in 30s)</sys:String>
+
+    <sys:String x:Key="Str.Button.TemplateReply">Template reply</sys:String>
+    <sys:String x:Key="Str.Tooltip.TemplateReply">Create an Outlook reply draft using the selected template.</sys:String>
+
+    <sys:String x:Key="Str.Button.DigestCopyTeams">Copy Digest + Teams</sys:String>
+    <sys:String x:Key="Str.Tooltip.DigestCopyTeams">Copy a digest of top-priority emails and open Teams.</sys:String>
+
+    <sys:String x:Key="Str.Empty.Selection.Title">Select an email</sys:String>
+    <sys:String x:Key="Str.Empty.Selection.Body">Select an email on the left to view the redacted summary.</sys:String>
+</ResourceDictionary>

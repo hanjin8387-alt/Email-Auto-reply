@@ -1,0 +1,51 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+    <sys:String x:Key="Str.MainWindow.Title">메일 분류 도우미</sys:String>
+
+    <sys:String x:Key="Str.Button.LoadEmails">메일 분류 실행</sys:String>
+    <sys:String x:Key="Str.Button.GenerateDigestTeams">Digest 복사 + Teams 열기</sys:String>
+
+    <sys:String x:Key="Str.Label.TeamsUserEmail">Teams 사용자 이메일:</sys:String>
+
+    <sys:String x:Key="Str.Tooltip.LoadEmails">Outlook Inbox에서 최근 메일을 불러와 우선순위를 계산합니다.</sys:String>
+    <sys:String x:Key="Str.Tooltip.GenerateDigestTeams">우선순위 상위 메일 Digest를 복사하고 Teams를 엽니다.</sys:String>
+    <sys:String x:Key="Str.Tooltip.TeamsUserEmail">Teams에서 채팅을 열 사용자 이메일 주소 (옵션)</sys:String>
+
+    <sys:String x:Key="Str.Automation.LoadEmails">메일 분류 실행</sys:String>
+    <sys:String x:Key="Str.Automation.GenerateDigestTeams">Digest 복사 및 Teams 열기</sys:String>
+    <sys:String x:Key="Str.Automation.TeamsUserEmailInput">Teams 사용자 이메일 입력</sys:String>
+
+    <sys:String x:Key="Str.Header.PriorityEmails">우선순위 메일</sys:String>
+    <sys:String x:Key="Str.Automation.CategoryFilter">카테고리 필터</sys:String>
+    <sys:String x:Key="Str.Tooltip.CategoryFilter">선택한 카테고리만 메일 목록에 표시합니다.</sys:String>
+    <sys:String x:Key="Str.Automation.EmailList">메일 목록</sys:String>
+    <sys:String x:Key="Str.Tooltip.EmailList">우선순위 기준으로 정렬된 메일 목록</sys:String>
+
+    <sys:String x:Key="Str.Text.AttachmentMarker">  📎</sys:String>
+    <sys:String x:Key="Str.Tooltip.Attachment">첨부파일 있음</sys:String>
+
+    <sys:String x:Key="Str.Empty.EmailList.Title">표시할 메일이 없습니다</sys:String>
+    <sys:String x:Key="Str.Empty.EmailList.Body">상단의 '메일 분류 실행'을 눌러 Outlook에서 불러오세요.</sys:String>
+
+    <sys:String x:Key="Str.Label.RedactedSummary">마스킹된 본문 요약</sys:String>
+
+    <sys:String x:Key="Str.Label.ReplyTemplate">답장 템플릿</sys:String>
+    <sys:String x:Key="Str.Automation.ReplyTemplateSelect">답장 템플릿 선택</sys:String>
+    <sys:String x:Key="Str.Tooltip.ReplyTemplateSelect">선택한 템플릿으로 Outlook 답장 초안을 생성합니다.</sys:String>
+
+    <sys:String x:Key="Str.Button.OpenInOutlook">Outlook에서 열기</sys:String>
+    <sys:String x:Key="Str.Tooltip.OpenInOutlook">선택한 메일을 Classic Outlook에서 엽니다.</sys:String>
+
+    <sys:String x:Key="Str.Button.CopyForCopilot">Copilot용 복사</sys:String>
+    <sys:String x:Key="Str.Tooltip.CopyForCopilot">선택한 메일의 마스킹된 요약을 클립보드에 복사합니다. (30초 후 자동 삭제)</sys:String>
+
+    <sys:String x:Key="Str.Button.TemplateReply">템플릿 답장</sys:String>
+    <sys:String x:Key="Str.Tooltip.TemplateReply">선택한 템플릿으로 Outlook 답장 초안을 생성합니다.</sys:String>
+
+    <sys:String x:Key="Str.Button.DigestCopyTeams">Digest 복사 + Teams</sys:String>
+    <sys:String x:Key="Str.Tooltip.DigestCopyTeams">우선순위 상위 메일 Digest를 복사하고 Teams를 엽니다.</sys:String>
+
+    <sys:String x:Key="Str.Empty.Selection.Title">메일을 선택하세요</sys:String>
+    <sys:String x:Key="Str.Empty.Selection.Body">왼쪽 목록에서 메일을 선택하면 마스킹된 요약이 표시됩니다.</sys:String>
+</ResourceDictionary>
