@@ -22,11 +22,11 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public sealed record CategoryFilterOption(string Label, EmailCategory? Category);
 
     private readonly IOutlookService _outlookService;
-    private readonly RedactionService _redactionService;
+    private readonly IRedactionService _redactionService;
     private readonly ClipboardSecurityHelper _clipboardSecurityHelper;
-    private readonly TriageService _triageService;
-    private readonly DigestService _digestService;
-    private readonly TemplateService _templateService;
+    private readonly ITriageService _triageService;
+    private readonly IDigestService _digestService;
+    private readonly ITemplateService _templateService;
     private readonly IDialogService _dialogService;
     private readonly SessionStatsService _sessionStats;
     private readonly ILogger<MainViewModel> _logger;
@@ -118,11 +118,11 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public MainViewModel(
         IOutlookService outlookService,
-        RedactionService redactionService,
+        IRedactionService redactionService,
         ClipboardSecurityHelper clipboardSecurityHelper,
-        TriageService triageService,
-        DigestService digestService,
-        TemplateService templateService,
+        ITriageService triageService,
+        IDigestService digestService,
+        ITemplateService templateService,
         IDialogService dialogService,
         SessionStatsService sessionStatsService,
         ILogger<MainViewModel> logger)
