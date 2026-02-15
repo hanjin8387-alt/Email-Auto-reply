@@ -37,6 +37,27 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        try
+        {
+            var stats = _serviceProvider?.GetService<SessionStatsService>();
+            var logger = _serviceProvider?.GetService<ILogger<App>>();
+            if (stats is not null && logger is not null)
+            {
+                var snapshot = stats.Snapshot();
+                logger.LogInformation(
+                    "Session stats: HeadersLoaded={HeadersLoaded}, DigestsGenerated={DigestsGenerated}, DigestsCopied={DigestsCopied}, TeamsOpenAttempts={TeamsOpenAttempts}, Errors={Errors}.",
+                    snapshot.HeadersLoaded,
+                    snapshot.DigestsGenerated,
+                    snapshot.DigestsCopied,
+                    snapshot.TeamsOpenAttempts,
+                    snapshot.Errors);
+            }
+        }
+        catch
+        {
+            // Ignore stats/logging failures on shutdown.
+        }
+
         _serviceProvider?.Dispose();
         _serviceProvider = null;
 
@@ -57,6 +78,7 @@ public partial class App : Application
 
         ConfigureLogging(services);
 
+        services.AddSingleton<SessionStatsService>();
         services.AddSingleton<IDialogService, WpfDialogService>();
         services.AddSingleton<RedactionService>();
         services.AddSingleton<ClipboardSecurityHelper>();

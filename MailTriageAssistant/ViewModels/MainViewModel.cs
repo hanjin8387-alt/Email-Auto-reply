@@ -27,6 +27,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private readonly DigestService _digestService;
     private readonly TemplateService _templateService;
     private readonly IDialogService _dialogService;
+    private readonly SessionStatsService _sessionStats;
     private readonly ILogger<MainViewModel> _logger;
 
     private AnalyzedItem? _selectedEmail;
@@ -122,6 +123,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         DigestService digestService,
         TemplateService templateService,
         IDialogService dialogService,
+        SessionStatsService sessionStatsService,
         ILogger<MainViewModel> logger)
     {
         _outlookService = outlookService ?? throw new ArgumentNullException(nameof(outlookService));
@@ -131,6 +133,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _digestService = digestService ?? throw new ArgumentNullException(nameof(digestService));
         _templateService = templateService ?? throw new ArgumentNullException(nameof(templateService));
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
+        _sessionStats = sessionStatsService ?? throw new ArgumentNullException(nameof(sessionStatsService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         Templates = _templateService.GetTemplates();
@@ -174,11 +177,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
         try
         {
             var headers = await _outlookService.FetchInboxHeaders().ConfigureAwait(true);
+            _sessionStats.RecordHeadersLoaded(headers.Count);
 
             var analyzed = new List<AnalyzedItem>(headers.Count);
             foreach (var h in headers)
             {
                 var triage = _triageService.AnalyzeHeader(h.SenderEmail, h.Subject);
+                _sessionStats.RecordTriage(triage.Category);
 
                 analyzed.Add(new AnalyzedItem
                 {
@@ -207,16 +212,19 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
         catch (NotSupportedException)
         {
+            _sessionStats.RecordError();
             _logger.LogWarning("LoadEmails blocked: Outlook not supported.");
             ShowOutlookNotSupported();
         }
         catch (InvalidOperationException)
         {
+            _sessionStats.RecordError();
             _logger.LogWarning("LoadEmails failed: Outlook not available.");
             ShowOutlookUnavailable();
         }
         catch (Exception ex)
         {
+            _sessionStats.RecordError();
             _logger.LogError("LoadEmails failed: {ExceptionType}.", ex.GetType().Name);
             StatusMessage = "메일을 불러오는 중 오류가 발생했습니다.";
             _dialogService.ShowError(StatusMessage, "오류");
@@ -360,6 +368,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
             EmailsView.Refresh();
 
             var digest = _digestService.GenerateDigest(top);
+            _sessionStats.RecordDigestGenerated();
+            _sessionStats.RecordDigestCopied();
+            _sessionStats.RecordTeamsOpenAttempt();
             _digestService.OpenTeams(digest, TeamsUserEmail);
 
             StatusMessage = "클립보드에 복사 완료. Teams를 여는 중...";
@@ -370,14 +381,20 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
         catch (NotSupportedException)
         {
+            _sessionStats.RecordError();
+            _logger.LogWarning("GenerateDigest blocked: Outlook not supported.");
             ShowOutlookNotSupported();
         }
         catch (InvalidOperationException)
         {
+            _sessionStats.RecordError();
+            _logger.LogWarning("GenerateDigest failed: Outlook not available.");
             ShowOutlookUnavailable();
         }
-        catch
+        catch (Exception ex)
         {
+            _sessionStats.RecordError();
+            _logger.LogError("GenerateDigest failed: {ExceptionType}.", ex.GetType().Name);
             StatusMessage = "Digest 생성 중 오류가 발생했습니다.";
             _dialogService.ShowError(StatusMessage, "오류");
         }
