@@ -3,6 +3,24 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:MailTriageAssistant">
     <Application.Resources>
-         
+        <SolidColorBrush x:Key="Brush.WindowBackground" Color="#FFFFFF" />
+
+        <SolidColorBrush x:Key="Brush.Border" Color="#DDDDDD" />
+        <SolidColorBrush x:Key="Brush.BorderSubtle" Color="#EEEEEE" />
+
+        <SolidColorBrush x:Key="Brush.PanelBackground" Color="#FAFAFA" />
+        <SolidColorBrush x:Key="Brush.SurfaceBackground" Color="#FCFCFC" />
+        <SolidColorBrush x:Key="Brush.StatusBackground" Color="#F5F5F5" />
+
+        <SolidColorBrush x:Key="Brush.TextPrimary" Color="#333333" />
+        <SolidColorBrush x:Key="Brush.TextSecondary" Color="#555555" />
+        <SolidColorBrush x:Key="Brush.TextTertiary" Color="#666666" />
+        <SolidColorBrush x:Key="Brush.TextMuted" Color="#777777" />
+        <SolidColorBrush x:Key="Brush.TextDisabled" Color="#999999" />
+        <SolidColorBrush x:Key="Brush.Separator" Color="#AAAAAA" />
+
+        <SolidColorBrush x:Key="Brush.ButtonBackground" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="Brush.ButtonBorder" Color="#DDDDDD" />
+        <SolidColorBrush x:Key="Brush.ButtonForeground" Color="#333333" />
     </Application.Resources>
 </Application>
