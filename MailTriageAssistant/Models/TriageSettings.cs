@@ -6,6 +6,8 @@ public sealed class TriageSettings
 {
     public string Language { get; set; } = "ko";
 
+    public int AutoRefreshIntervalMinutes { get; set; } = 0;
+
     public string[] VipSenders { get; set; } = new[]
     {
         "ceo@company.com",
