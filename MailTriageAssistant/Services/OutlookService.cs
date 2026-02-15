@@ -276,6 +276,10 @@ public sealed class OutlookService : IOutlookService, IDisposable
                         });
                     }
                 }
+                catch
+                {
+                    // Partial failure: skip a problematic item and continue enumerating the rest.
+                }
                 finally
                 {
                     SafeReleaseComObject(current);
