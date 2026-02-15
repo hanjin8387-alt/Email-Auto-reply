@@ -4,7 +4,6 @@ using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
-using System.Windows;
 using System.Windows.Input;
 using MailTriageAssistant.Helpers;
 using MailTriageAssistant.Models;
@@ -23,6 +22,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private readonly TriageService _triageService;
     private readonly DigestService _digestService;
     private readonly TemplateService _templateService;
+    private readonly IDialogService _dialogService;
 
     private AnalyzedItem? _selectedEmail;
     private ReplyTemplate? _selectedTemplate;
@@ -95,7 +95,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ClipboardSecurityHelper clipboardSecurityHelper,
         TriageService triageService,
         DigestService digestService,
-        TemplateService templateService)
+        TemplateService templateService,
+        IDialogService dialogService)
     {
         _outlookService = outlookService ?? throw new ArgumentNullException(nameof(outlookService));
         _redactionService = redactionService ?? throw new ArgumentNullException(nameof(redactionService));
@@ -103,6 +104,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _triageService = triageService ?? throw new ArgumentNullException(nameof(triageService));
         _digestService = digestService ?? throw new ArgumentNullException(nameof(digestService));
         _templateService = templateService ?? throw new ArgumentNullException(nameof(templateService));
+        _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
 
         Templates = _templateService.GetTemplates();
         SelectedTemplate = Templates.FirstOrDefault();
@@ -162,7 +164,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         catch
         {
             StatusMessage = "메일을 불러오는 중 오류가 발생했습니다.";
-            MessageBox.Show(StatusMessage, "오류", MessageBoxButton.OK, MessageBoxImage.Error);
+            _dialogService.ShowError(StatusMessage, "오류");
         }
         finally
         {
@@ -207,7 +209,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         catch
         {
             StatusMessage = "본문을 불러오는 중 오류가 발생했습니다.";
-            MessageBox.Show(StatusMessage, "오류", MessageBoxButton.OK, MessageBoxImage.Error);
+            _dialogService.ShowError(StatusMessage, "오류");
         }
     }
 
@@ -250,11 +252,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
             StatusMessage = "클립보드에 복사 완료. Teams를 여는 중...";
 
-            MessageBox.Show(
+            _dialogService.ShowInfo(
                 "클립보드에 Digest를 복사했습니다. Teams를 여는 중입니다.\nTeams에서 Copilot에 붙여넣어 주세요.",
-                "Digest 준비 완료",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+                "Digest 준비 완료");
         }
         catch (NotSupportedException)
         {
@@ -267,7 +267,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         catch
         {
             StatusMessage = "Digest 생성 중 오류가 발생했습니다.";
-            MessageBox.Show(StatusMessage, "오류", MessageBoxButton.OK, MessageBoxImage.Error);
+            _dialogService.ShowError(StatusMessage, "오류");
         }
         finally
         {
@@ -284,11 +284,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         if (string.IsNullOrWhiteSpace(SelectedEmail.SenderEmail))
         {
-            MessageBox.Show(
+            _dialogService.ShowInfo(
                 "수신자 이메일 주소를 확인할 수 없습니다.",
-                "템플릿 답장",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+                "템플릿 답장");
             return;
         }
 
@@ -324,7 +322,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         catch
         {
             StatusMessage = "초안 생성 중 오류가 발생했습니다.";
-            MessageBox.Show(StatusMessage, "오류", MessageBoxButton.OK, MessageBoxImage.Error);
+            _dialogService.ShowError(StatusMessage, "오류");
         }
         finally
         {
@@ -348,20 +346,20 @@ public sealed class MainViewModel : INotifyPropertyChanged
         catch
         {
             StatusMessage = "클립보드 복사 중 오류가 발생했습니다.";
-            MessageBox.Show(StatusMessage, "오류", MessageBoxButton.OK, MessageBoxImage.Error);
+            _dialogService.ShowError(StatusMessage, "오류");
         }
     }
 
     private void ShowOutlookNotSupported()
     {
         StatusMessage = OutlookNotSupportedMessage;
-        MessageBox.Show(OutlookNotSupportedMessage, "Outlook", MessageBoxButton.OK, MessageBoxImage.Warning);
+        _dialogService.ShowWarning(OutlookNotSupportedMessage, "Outlook");
     }
 
     private void ShowOutlookUnavailable()
     {
         StatusMessage = OutlookUnavailableMessage;
-        MessageBox.Show(OutlookUnavailableMessage, "Outlook", MessageBoxButton.OK, MessageBoxImage.Information);
+        _dialogService.ShowInfo(OutlookUnavailableMessage, "Outlook");
     }
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)

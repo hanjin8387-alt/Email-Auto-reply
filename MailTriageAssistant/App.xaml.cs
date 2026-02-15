@@ -36,6 +36,7 @@ public partial class App : Application
 
     private static void ConfigureServices(IServiceCollection services)
     {
+        services.AddSingleton<IDialogService, WpfDialogService>();
         services.AddSingleton<RedactionService>();
         services.AddSingleton<ClipboardSecurityHelper>();
         services.AddSingleton<IOutlookService, OutlookService>();
