@@ -31,3 +31,18 @@ Plan: `.ai/plans/2026-02-13_feature_master_plan.md`
 - Win+V → 클립보드 히스토리에 Digest 미표시
 - New Outlook(olk.exe) 실행 중 → 에러 안내
 
+
+---
+
+## Perf Master Plan Execution
+Plan: `.ai/plans/2026-02-13_perf_master_plan.md`
+
+## [0-1] bench: Add PerfScope instrumentation helper
+- **Status**: OK Committed
+- **Files**: `MailTriageAssistant/Helpers/PerfScope.cs`
+- **Lines**: +109 / -0
+- **Build**: OK (0 warnings)
+- **Test**: OK (107/107 passed)
+- **Perf Before**: n/a
+- **Perf After**: n/a
+- **Notes**: Debug-only instrumentation; logs only scope name + elapsed time (no email content).
