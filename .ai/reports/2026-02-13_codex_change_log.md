@@ -166,3 +166,13 @@ Plan: `.ai/plans/2026-02-13_perf_master_plan.md`
 - **Perf Before**: n/a
 - **Perf After**: removed per-row redaction converter work in the list
 - **Notes**: List binding now uses `RedactedSender` and `RedactedSubject`.
+
+## [2-3] perf: Remove redundant EmailsView.Refresh() calls
+- **Status**: OK Committed
+- **Files**: `MailTriageAssistant/ViewModels/MainViewModel.cs`
+- **Lines**: +17 / -3
+- **Build**: OK (0 warnings)
+- **Test**: OK (107/107 passed)
+- **Perf Before**: n/a
+- **Perf After**: fewer full view refreshes during background body loading
+- **Notes**: Enabled live filtering on `Category` (best-effort) and removed refresh calls from prefetch/digest paths.

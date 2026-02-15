@@ -198,6 +198,23 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         EmailsView = CollectionViewSource.GetDefaultView(Emails);
         EmailsView.Filter = FilterEmailByCategory;
+        try
+        {
+            // Enables automatic re-filtering when item.Category changes (avoids manual EmailsView.Refresh()).
+            if (EmailsView is ICollectionViewLiveShaping live)
+            {
+                if (!live.LiveFilteringProperties.Contains(nameof(AnalyzedItem.Category)))
+                {
+                    live.LiveFilteringProperties.Add(nameof(AnalyzedItem.Category));
+                }
+
+                live.IsLiveFiltering = true;
+            }
+        }
+        catch
+        {
+            // Live shaping is best-effort; fall back to manual refresh when not available.
+        }
 
         ApplyAutoRefreshSettings(_settingsMonitor.CurrentValue);
         _settingsMonitor.OnChange((settings, _) => ApplyAutoRefreshSettings(settings));
@@ -696,7 +713,6 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 item.IsBodyLoaded = true;
             }
 
-            EmailsView.Refresh();
             if (statusWasSet && string.Equals(StatusMessage, prefetchStatus, StringComparison.Ordinal))
             {
                 StatusMessage = loadCompleteStatus;
@@ -769,8 +785,6 @@ public sealed class MainViewModel : INotifyPropertyChanged
                         : _redactionService.Redact(body);
                     item.IsBodyLoaded = true;
                 }
-
-                EmailsView.Refresh();
             }
 
             var digest = _digestService.GenerateDigest(top);
