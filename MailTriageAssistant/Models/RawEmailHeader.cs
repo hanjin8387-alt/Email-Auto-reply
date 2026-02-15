@@ -4,11 +4,10 @@ namespace MailTriageAssistant.Models;
 
 public sealed class RawEmailHeader
 {
-    public string EntryId { get; set; } = string.Empty;
-    public string SenderName { get; set; } = string.Empty;
-    public string SenderEmail { get; set; } = string.Empty;
-    public string Subject { get; set; } = string.Empty;
-    public DateTime ReceivedTime { get; set; }
-    public bool HasAttachments { get; set; }
+    public string EntryId { get; init; } = string.Empty;
+    public string SenderName { get; init; } = string.Empty;
+    public string SenderEmail { get; init; } = string.Empty;
+    public string Subject { get; init; } = string.Empty;
+    public DateTime ReceivedTime { get; init; }
+    public bool HasAttachments { get; init; }
 }
-

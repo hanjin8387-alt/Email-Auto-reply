@@ -116,9 +116,10 @@ public sealed class TemplateServiceTests
     public void GetTemplates_ReturnsDeepCopies()
     {
         var templates1 = _sut.GetTemplates();
-        templates1[0].Title = "CHANGED";
-
         var templates2 = _sut.GetTemplates();
-        templates2[0].Title.Should().NotBe("CHANGED");
+
+        templates1.Should().NotBeSameAs(templates2);
+        templates1[0].Should().NotBeSameAs(templates2[0]);
+        templates1[0].Title.Should().Be(templates2[0].Title);
     }
 }
