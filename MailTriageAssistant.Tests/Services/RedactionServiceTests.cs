@@ -10,6 +10,7 @@ public sealed class RedactionServiceTests
 
     [Theory]
     [InlineData("010-1234-5678", "[PHONE]")]
+    [InlineData("０１０-１２３４-５６７８", "[PHONE]")]
     [InlineData("900101-1234567", "[SSN]")]
     [InlineData("9001011234567", "[SSN]")]
     [InlineData("1234-5678-9012-3456", "[CARD]")]

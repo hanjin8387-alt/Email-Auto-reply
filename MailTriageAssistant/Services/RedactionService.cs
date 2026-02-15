@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace MailTriageAssistant.Services;
@@ -38,7 +39,7 @@ public sealed class RedactionService
             return input;
         }
 
-        var result = input;
+        var result = NormalizeToAsciiDigits(input);
         foreach (var (pattern, replacement) in Rules)
         {
             result = pattern.Replace(result, replacement);
@@ -46,4 +47,7 @@ public sealed class RedactionService
 
         return result;
     }
+
+    private static string NormalizeToAsciiDigits(string text)
+        => text.Normalize(NormalizationForm.FormKC);
 }
