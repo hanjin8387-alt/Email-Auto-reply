@@ -86,3 +86,13 @@ Plan: `.ai/plans/2026-02-13_perf_master_plan.md`
 - **Perf Before**: n/a
 - **Perf After**: n/a
 - **Notes**: Debug-only startup timing (OnStartup → MainWindow.Loaded) + WorkingSet64 MB logging; stores `startup_ms` in PerfMetrics.
+
+## [0-6] bench: Write perf_metrics.json on shutdown
+- **Status**: OK Committed
+- **Files**: `MailTriageAssistant/App.xaml.cs`
+- **Lines**: +38 / -0
+- **Build**: OK (0 warnings)
+- **Test**: OK (107/107 passed)
+- **Perf Before**: n/a
+- **Perf After**: n/a
+- **Notes**: Debug-only; writes `%LOCALAPPDATA%\\MailTriageAssistant\\perf_metrics.json` containing timings + startup/exit memory.

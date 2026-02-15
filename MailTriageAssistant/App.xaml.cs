@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -85,6 +86,10 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+#if DEBUG
+        TryWritePerfMetrics();
+#endif
+
         try
         {
             _trayIcon?.Dispose();
@@ -123,6 +128,39 @@ public partial class App : Application
 
         base.OnExit(e);
     }
+
+#if DEBUG
+    private void TryWritePerfMetrics()
+    {
+        try
+        {
+            var dir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "MailTriageAssistant");
+            Directory.CreateDirectory(dir);
+
+            var path = Path.Combine(dir, "perf_metrics.json");
+
+            var exitWorkingSetMb = Math.Round(Process.GetCurrentProcess().WorkingSet64 / (1024d * 1024d), 1);
+
+            var payload = new
+            {
+                generated_utc = DateTimeOffset.UtcNow,
+                startup_ms = _startupMs,
+                startup_working_set_mb = _startupWorkingSetMb,
+                exit_working_set_mb = exitWorkingSetMb,
+                timings = MailTriageAssistant.Helpers.PerfMetrics.Snapshot(),
+            };
+
+            var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(path, json);
+        }
+        catch
+        {
+            // Ignore perf metrics failures on shutdown.
+        }
+    }
+#endif
 
     private void TryInitializeSystemTray(MainWindow mainWindow)
     {
