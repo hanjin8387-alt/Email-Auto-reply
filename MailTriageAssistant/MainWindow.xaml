@@ -15,6 +15,7 @@
         <helpers:ScoreToColorConverter x:Key="ScoreToColor" />
         <helpers:ScoreToLabelConverter x:Key="ScoreToLabel" />
         <helpers:RedactionConverter x:Key="Redaction" />
+        <helpers:CategoryToIconConverter x:Key="CategoryToIcon" />
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
     </Window.Resources>
 
@@ -81,6 +82,14 @@
                              AutomationProperties.Name="메일 목록"
                              ToolTip="우선순위 기준으로 정렬된 메일 목록"
                              TabIndex="3">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <Setter Property="Padding" Value="0" />
+                                <Setter Property="Margin" Value="0" />
+                                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                            </Style>
+                        </ListBox.ItemContainerStyle>
                         <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <Border Padding="8"
@@ -89,6 +98,24 @@
                                         CornerRadius="6"
                                         BorderBrush="{StaticResource Brush.BorderSubtle}"
                                         BorderThickness="1">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="{StaticResource Brush.PanelBackground}" />
+                                            <Setter Property="BorderBrush" Value="{StaticResource Brush.BorderSubtle}" />
+                                            <Setter Property="BorderThickness" Value="1" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ListBoxItem}, Path=IsMouseOver}" Value="True">
+                                                    <Setter Property="Background" Value="{StaticResource Brush.SurfaceBackground}" />
+                                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Border}" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ListBoxItem}, Path=IsSelected}" Value="True">
+                                                    <Setter Property="Background" Value="{StaticResource Brush.WindowBackground}" />
+                                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.TextPrimary}" />
+                                                    <Setter Property="BorderThickness" Value="2" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />
@@ -103,7 +130,18 @@
                                             <TextBlock Text="{Binding Score, Converter={StaticResource ScoreToLabel}}"
                                                        FontSize="11"
                                                        Foreground="{StaticResource Brush.TextMuted}" />
-                                            <TextBlock Text="{Binding Category}" FontSize="12" Foreground="{StaticResource Brush.TextTertiary}" />
+                                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                                <Border Background="{StaticResource Brush.StatusBackground}" CornerRadius="10" Padding="6,1" Margin="0,0,6,0">
+                                                    <TextBlock Text="{Binding Category, Converter={StaticResource CategoryToIcon}}"
+                                                               FontSize="12"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{StaticResource Brush.TextPrimary}" />
+                                                </Border>
+                                                <TextBlock Text="{Binding Category}"
+                                                           FontSize="12"
+                                                           Foreground="{StaticResource Brush.TextTertiary}"
+                                                           VerticalAlignment="Center" />
+                                            </StackPanel>
                                         </StackPanel>
 
                                         <StackPanel Grid.Column="1">
