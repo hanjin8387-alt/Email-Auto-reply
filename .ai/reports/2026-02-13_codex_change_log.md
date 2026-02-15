@@ -146,3 +146,13 @@ Plan: `.ai/plans/2026-02-13_perf_master_plan.md`
 - **Perf Before**: n/a
 - **Perf After**: reduced UI churn on refresh (avoid full Clear+Reset when possible)
 - **Notes**: Reuse existing items by EntryId and update only what's needed; apply minimal Move/Insert/Remove updates under `DeferRefresh()` (initial load uses `AddRange` fast-path).
+
+## [2-1] perf: Precompute redacted sender/subject on AnalyzedItem
+- **Status**: OK Committed
+- **Files**: `MailTriageAssistant/Models/AnalyzedItem.cs`, `MailTriageAssistant/ViewModels/MainViewModel.cs`
+- **Lines**: +26 / -1
+- **Build**: OK (0 warnings)
+- **Test**: OK (107/107 passed)
+- **Perf Before**: n/a
+- **Perf After**: prepares removal of per-row redaction converter work
+- **Notes**: Added `RedactedSender`/`RedactedSubject` and populate them during header load (and for existing items when missing).

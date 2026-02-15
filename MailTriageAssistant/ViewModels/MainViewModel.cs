@@ -256,6 +256,16 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
                 if (existingById.TryGetValue(h.EntryId, out var existing))
                 {
+                    if (string.IsNullOrEmpty(existing.RedactedSender))
+                    {
+                        existing.RedactedSender = _redactionService.Redact(existing.Sender);
+                    }
+
+                    if (string.IsNullOrEmpty(existing.RedactedSubject))
+                    {
+                        existing.RedactedSubject = _redactionService.Redact(existing.Subject);
+                    }
+
                     if (existing.IsBodyLoaded)
                     {
                         _sessionStats.RecordTriage(existing.Category);
@@ -287,6 +297,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
                     Subject = h.Subject,
                     ReceivedTime = h.ReceivedTime,
                     HasAttachments = h.HasAttachments,
+                    RedactedSender = _redactionService.Redact(h.SenderName),
+                    RedactedSubject = _redactionService.Redact(h.Subject),
                     Category = newTriage.Category,
                     Score = newTriage.Score,
                     ActionHint = newTriage.ActionHint,

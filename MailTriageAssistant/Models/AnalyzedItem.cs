@@ -8,6 +8,8 @@ public sealed class AnalyzedItem : INotifyPropertyChanged
 {
     private EmailCategory _category;
     private int _score;
+    private string _redactedSender = string.Empty;
+    private string _redactedSubject = string.Empty;
     private string _redactedSummary = string.Empty;
     private string _actionHint = string.Empty;
     private string[] _tags = Array.Empty<string>();
@@ -21,6 +23,18 @@ public sealed class AnalyzedItem : INotifyPropertyChanged
     public string Subject { get; init; } = string.Empty;
     public DateTime ReceivedTime { get; init; }
     public bool HasAttachments { get; init; }
+
+    public string RedactedSender
+    {
+        get => _redactedSender;
+        set => SetProperty(ref _redactedSender, value);
+    }
+
+    public string RedactedSubject
+    {
+        get => _redactedSubject;
+        set => SetProperty(ref _redactedSubject, value);
+    }
 
     public EmailCategory Category
     {
@@ -71,4 +85,3 @@ public sealed class AnalyzedItem : INotifyPropertyChanged
         return true;
     }
 }
-
