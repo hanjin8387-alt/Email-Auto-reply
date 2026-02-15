@@ -10,6 +10,7 @@ using MailTriageAssistant.Models;
 using MailTriageAssistant.Services;
 using MailTriageAssistant.ViewModels;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Moq;
 using Xunit;
 
@@ -325,6 +326,12 @@ public sealed class MainViewModelTests
     {
         // NOTE: ClipboardSecurityHelper is injected but not exercised here to avoid clipboard dependencies.
         var clipboard = new ClipboardSecurityHelper(new RedactionService());
+        var settings = new TriageSettings { AutoRefreshIntervalMinutes = 0 };
+        var options = new Mock<IOptionsMonitor<TriageSettings>>(MockBehavior.Strict);
+        options.Setup(o => o.CurrentValue).Returns(settings);
+        options.Setup(o => o.Get(It.IsAny<string>())).Returns(settings);
+        options.Setup(o => o.OnChange(It.IsAny<Action<TriageSettings, string?>>()))
+            .Returns(Mock.Of<IDisposable>());
 
         return new MainViewModel(
             outlookService,
@@ -335,6 +342,7 @@ public sealed class MainViewModelTests
             templateService,
             dialogService,
             new SessionStatsService(),
+            options.Object,
             NullLogger<MainViewModel>.Instance);
     }
 

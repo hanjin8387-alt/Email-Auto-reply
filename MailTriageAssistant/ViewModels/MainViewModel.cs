@@ -7,10 +7,12 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using System.Windows.Data;
+using System.Windows.Threading;
 using MailTriageAssistant.Helpers;
 using MailTriageAssistant.Models;
 using MailTriageAssistant.Services;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace MailTriageAssistant.ViewModels;
 
@@ -29,7 +31,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private readonly ITemplateService _templateService;
     private readonly IDialogService _dialogService;
     private readonly SessionStatsService _sessionStats;
+    private readonly IOptionsMonitor<TriageSettings> _settingsMonitor;
     private readonly ILogger<MainViewModel> _logger;
+
+    private readonly DispatcherTimer _autoRefreshTimer;
+    private CancellationTokenSource? _autoRefreshCts;
+    private int _autoRefreshFailureStreak;
 
     private AnalyzedItem? _selectedEmail;
     private ReplyTemplate? _selectedTemplate;
@@ -37,6 +44,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private string _statusMessage = "대기 중";
     private bool _isLoading;
     private string _teamsUserEmail = string.Empty;
+    private bool _autoRefreshPaused;
+    private DateTimeOffset? _nextAutoRefreshAt;
 
     public RangeObservableCollection<AnalyzedItem> Emails { get; } = new();
     public ICollectionView EmailsView { get; }
@@ -114,6 +123,18 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ICommand CopySelectedCommand { get; }
     public ICommand OpenInOutlookCommand { get; }
 
+    public bool AutoRefreshPaused
+    {
+        get => _autoRefreshPaused;
+        private set => SetProperty(ref _autoRefreshPaused, value);
+    }
+
+    public DateTimeOffset? NextAutoRefreshAt
+    {
+        get => _nextAutoRefreshAt;
+        private set => SetProperty(ref _nextAutoRefreshAt, value);
+    }
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public MainViewModel(
@@ -125,6 +146,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ITemplateService templateService,
         IDialogService dialogService,
         SessionStatsService sessionStatsService,
+        IOptionsMonitor<TriageSettings> settingsMonitor,
         ILogger<MainViewModel> logger)
     {
         _outlookService = outlookService ?? throw new ArgumentNullException(nameof(outlookService));
@@ -135,7 +157,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _templateService = templateService ?? throw new ArgumentNullException(nameof(templateService));
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         _sessionStats = sessionStatsService ?? throw new ArgumentNullException(nameof(sessionStatsService));
+        _settingsMonitor = settingsMonitor ?? throw new ArgumentNullException(nameof(settingsMonitor));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
+        _autoRefreshTimer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            IsEnabled = false,
+        };
+        _autoRefreshTimer.Tick += OnAutoRefreshTimerTick;
 
         Templates = _templateService.GetTemplates();
         SelectedTemplate = Templates.FirstOrDefault();
@@ -161,6 +190,16 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         EmailsView = CollectionViewSource.GetDefaultView(Emails);
         EmailsView.Filter = FilterEmailByCategory;
+
+        ApplyAutoRefreshSettings(_settingsMonitor.CurrentValue);
+        _settingsMonitor.OnChange((settings, _) => ApplyAutoRefreshSettings(settings));
+    }
+
+    private enum LoadEmailsOutcome
+    {
+        Success,
+        Failure,
+        Cancelled,
     }
 
     private Task LoadEmailsAsync()
@@ -168,10 +207,16 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private async Task LoadEmailsAsync(CancellationToken ct)
     {
+        await TryLoadEmailsAsync(ct, showDialogs: true).ConfigureAwait(true);
+        ResetAutoRefreshAfterManualRun();
+    }
+
+    private async Task<LoadEmailsOutcome> TryLoadEmailsAsync(CancellationToken ct, bool showDialogs)
+    {
 #if DEBUG
         var sw = System.Diagnostics.Stopwatch.StartNew();
 #endif
-        _logger.LogInformation("LoadEmails started.");
+        _logger.LogInformation("LoadEmails started (showDialogs={ShowDialogs}).", showDialogs);
         IsLoading = true;
         StatusMessage = "Outlook에서 메일 헤더를 불러오는 중...";
 
@@ -214,25 +259,54 @@ public sealed class MainViewModel : INotifyPropertyChanged
             _logger.LogInformation("LoadEmails completed: {Count} items.", Emails.Count);
 
             PrefetchTopBodiesAsync(ct).SafeFireAndForget();
+            return LoadEmailsOutcome.Success;
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogInformation("LoadEmails cancelled.");
+            return LoadEmailsOutcome.Cancelled;
         }
         catch (NotSupportedException)
         {
             _sessionStats.RecordError();
             _logger.LogWarning("LoadEmails blocked: Outlook not supported.");
-            ShowOutlookNotSupported();
+            if (showDialogs)
+            {
+                ShowOutlookNotSupported();
+            }
+            else
+            {
+                StatusMessage = OutlookNotSupportedMessage;
+            }
+
+            return LoadEmailsOutcome.Failure;
         }
         catch (InvalidOperationException)
         {
             _sessionStats.RecordError();
             _logger.LogWarning("LoadEmails failed: Outlook not available.");
-            ShowOutlookUnavailable();
+            if (showDialogs)
+            {
+                ShowOutlookUnavailable();
+            }
+            else
+            {
+                StatusMessage = OutlookUnavailableMessage;
+            }
+
+            return LoadEmailsOutcome.Failure;
         }
         catch (Exception ex)
         {
             _sessionStats.RecordError();
             _logger.LogError("LoadEmails failed: {ExceptionType}.", ex.GetType().Name);
             StatusMessage = "메일을 불러오는 중 오류가 발생했습니다.";
-            _dialogService.ShowError(StatusMessage, "오류");
+            if (showDialogs)
+            {
+                _dialogService.ShowError(StatusMessage, "오류");
+            }
+
+            return LoadEmailsOutcome.Failure;
         }
         finally
         {
@@ -242,6 +316,124 @@ public sealed class MainViewModel : INotifyPropertyChanged
             MailTriageAssistant.Helpers.PerfEventSource.Log.Measure("LoadEmailsAsync", sw.ElapsedMilliseconds);
 #endif
         }
+    }
+
+    private void ApplyAutoRefreshSettings(TriageSettings settings)
+    {
+        var minutes = Math.Max(0, settings.AutoRefreshIntervalMinutes);
+        if (minutes <= 0)
+        {
+            StopAutoRefresh();
+            return;
+        }
+
+        _autoRefreshTimer.Interval = TimeSpan.FromMinutes(minutes);
+
+        if (AutoRefreshPaused)
+        {
+            // Keep paused until a manual run or interval is disabled/enabled.
+            _autoRefreshTimer.Stop();
+            NextAutoRefreshAt = null;
+            return;
+        }
+
+        ResetAutoRefreshTimer();
+    }
+
+    private void ResetAutoRefreshAfterManualRun()
+    {
+        if (AutoRefreshPaused)
+        {
+            AutoRefreshPaused = false;
+            _autoRefreshFailureStreak = 0;
+        }
+
+        ResetAutoRefreshTimer();
+    }
+
+    private void ResetAutoRefreshTimer()
+    {
+        var minutes = Math.Max(0, _settingsMonitor.CurrentValue.AutoRefreshIntervalMinutes);
+        if (minutes <= 0 || AutoRefreshPaused)
+        {
+            _autoRefreshTimer.Stop();
+            NextAutoRefreshAt = null;
+            return;
+        }
+
+        _autoRefreshTimer.Interval = TimeSpan.FromMinutes(minutes);
+        _autoRefreshTimer.Stop();
+        _autoRefreshTimer.Start();
+        NextAutoRefreshAt = DateTimeOffset.Now.AddMinutes(minutes);
+    }
+
+    private void StopAutoRefresh()
+    {
+        _autoRefreshTimer.Stop();
+        NextAutoRefreshAt = null;
+
+        _autoRefreshCts?.Cancel();
+        _autoRefreshCts?.Dispose();
+        _autoRefreshCts = null;
+
+        _autoRefreshFailureStreak = 0;
+        AutoRefreshPaused = false;
+    }
+
+    private void OnAutoRefreshTimerTick(object? sender, EventArgs e)
+    {
+        _autoRefreshTimer.Stop();
+
+        AutoRefreshTickAsync().SafeFireAndForget(ex =>
+        {
+            _logger.LogError("AutoRefresh failed: {ExceptionType}.", ex.GetType().Name);
+        });
+    }
+
+    private async Task AutoRefreshTickAsync()
+    {
+        if (AutoRefreshPaused)
+        {
+            return;
+        }
+
+        var minutes = Math.Max(0, _settingsMonitor.CurrentValue.AutoRefreshIntervalMinutes);
+        if (minutes <= 0)
+        {
+            StopAutoRefresh();
+            return;
+        }
+
+        if (IsLoading)
+        {
+            ResetAutoRefreshTimer();
+            return;
+        }
+
+        _autoRefreshCts?.Cancel();
+        _autoRefreshCts?.Dispose();
+        _autoRefreshCts = new CancellationTokenSource();
+
+        var outcome = await TryLoadEmailsAsync(_autoRefreshCts.Token, showDialogs: false).ConfigureAwait(true);
+
+        if (outcome == LoadEmailsOutcome.Success)
+        {
+            _autoRefreshFailureStreak = 0;
+        }
+        else if (outcome == LoadEmailsOutcome.Failure)
+        {
+            _autoRefreshFailureStreak++;
+            if (_autoRefreshFailureStreak >= 3)
+            {
+                AutoRefreshPaused = true;
+                NextAutoRefreshAt = null;
+                StatusMessage = "자동 분류가 3회 연속 실패하여 일시 중지되었습니다.";
+                _dialogService.ShowWarning(StatusMessage, "자동 분류");
+                return;
+            }
+        }
+
+        ResetAutoRefreshTimer();
     }
 
     private Task LoadSelectedEmailBodyAsync(AnalyzedItem? item)
