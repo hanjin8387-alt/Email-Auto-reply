@@ -4,6 +4,8 @@ namespace MailTriageAssistant.Models;
 
 public sealed class TriageSettings
 {
+    public string Language { get; set; } = "ko";
+
     public string[] VipSenders { get; set; } = new[]
     {
         "ceo@company.com",
@@ -63,4 +65,3 @@ public sealed class TriageSettings
     public int NewsletterPenalty { get; set; } = 50;
     public int UnknownSenderPenalty { get; set; } = 10;
 }
-

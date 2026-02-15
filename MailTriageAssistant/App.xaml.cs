@@ -27,6 +27,7 @@ public partial class App : Application
         _serviceProvider = services.BuildServiceProvider();
 
         TryApplyUserVipOverrides(_serviceProvider);
+        TryApplyLanguageResources(_serviceProvider);
 
         _serviceProvider.GetRequiredService<ILogger<App>>()
             .LogInformation("App started.");
@@ -186,6 +187,46 @@ public partial class App : Application
         catch
         {
             // Ignore user settings load failures; app should still run with appsettings defaults.
+        }
+    }
+
+    private static void TryApplyLanguageResources(IServiceProvider services)
+    {
+        try
+        {
+            var triageOptions = services.GetService<IOptionsMonitor<TriageSettings>>();
+            var language = triageOptions?.CurrentValue?.Language ?? "ko";
+
+            var source = string.Equals(language, "en", StringComparison.OrdinalIgnoreCase)
+                ? "Resources/Strings.en.xaml"
+                : "Resources/Strings.ko.xaml";
+
+            var merged = Current?.Resources.MergedDictionaries;
+            if (merged is null)
+            {
+                return;
+            }
+
+            var existing = merged.FirstOrDefault(d =>
+            {
+                var s = d.Source?.OriginalString ?? string.Empty;
+                return s.EndsWith("Resources/Strings.ko.xaml", StringComparison.OrdinalIgnoreCase) ||
+                       s.EndsWith("Resources/Strings.en.xaml", StringComparison.OrdinalIgnoreCase);
+            });
+
+            var uri = new Uri(source, UriKind.Relative);
+            if (existing is null)
+            {
+                merged.Insert(0, new ResourceDictionary { Source = uri });
+            }
+            else
+            {
+                existing.Source = uri;
+            }
+        }
+        catch
+        {
+            // Ignore language selection issues; default resources should still work.
         }
     }
 }
