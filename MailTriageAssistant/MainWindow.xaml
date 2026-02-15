@@ -13,6 +13,7 @@
         WindowStartupLocation="CenterScreen">
     <Window.Resources>
         <helpers:ScoreToColorConverter x:Key="ScoreToColor" />
+        <helpers:RedactionConverter x:Key="Redaction" />
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
     </Window.Resources>
 
@@ -90,8 +91,8 @@
                                     </StackPanel>
 
                                     <StackPanel Grid.Column="1">
-                                        <TextBlock Text="{Binding Sender}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Text="{Binding Subject}" Foreground="#333" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding Sender, Converter={StaticResource Redaction}}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding Subject, Converter={StaticResource Redaction}}" Foreground="#333" TextTrimming="CharacterEllipsis" />
                                         <TextBlock Text="{Binding ReceivedTime, StringFormat={}{0:yyyy-MM-dd HH:mm}}"
                                                    FontSize="11"
                                                    Foreground="#777"
@@ -115,9 +116,9 @@
                 </Grid.RowDefinitions>
 
                 <StackPanel Grid.Row="0">
-                    <TextBlock Text="{Binding SelectedEmail.Subject}" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding SelectedEmail.Subject, Converter={StaticResource Redaction}}" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
                     <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                        <TextBlock Text="{Binding SelectedEmail.Sender}" Foreground="#555" />
+                        <TextBlock Text="{Binding SelectedEmail.Sender, Converter={StaticResource Redaction}}" Foreground="#555" />
                         <TextBlock Text="  •  " Foreground="#AAA" />
                         <TextBlock Text="{Binding SelectedEmail.ReceivedTime, StringFormat={}{0:yyyy-MM-dd HH:mm}}" Foreground="#555" />
                         <TextBlock Text="  •  " Foreground="#AAA" />
@@ -181,4 +182,3 @@
         </Border>
     </Grid>
 </Window>
-
