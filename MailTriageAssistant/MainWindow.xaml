@@ -64,6 +64,11 @@
                          Margin="16,0,0,0"
                          Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}"
                          VerticalAlignment="Center" />
+
+            <TextBlock Text="{Binding AutoRefreshStatusText}"
+                       VerticalAlignment="Center"
+                       Margin="16,0,0,0"
+                       Foreground="{StaticResource Brush.TextMuted}" />
         </DockPanel>
 
         <Border Grid.Row="1" Grid.Column="0" BorderBrush="{StaticResource Brush.Border}" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,8,0">

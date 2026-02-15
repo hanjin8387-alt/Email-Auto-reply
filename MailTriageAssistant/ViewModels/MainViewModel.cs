@@ -46,6 +46,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private string _teamsUserEmail = string.Empty;
     private bool _autoRefreshPaused;
     private DateTimeOffset? _nextAutoRefreshAt;
+    private string _autoRefreshStatusText = string.Empty;
 
     public RangeObservableCollection<AnalyzedItem> Emails { get; } = new();
     public ICollectionView EmailsView { get; }
@@ -133,6 +134,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
     {
         get => _nextAutoRefreshAt;
         private set => SetProperty(ref _nextAutoRefreshAt, value);
+    }
+
+    public string AutoRefreshStatusText
+    {
+        get => _autoRefreshStatusText;
+        private set => SetProperty(ref _autoRefreshStatusText, value);
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -334,6 +341,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             // Keep paused until a manual run or interval is disabled/enabled.
             _autoRefreshTimer.Stop();
             NextAutoRefreshAt = null;
+            UpdateAutoRefreshStatusText();
             return;
         }
 
@@ -358,6 +366,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         {
             _autoRefreshTimer.Stop();
             NextAutoRefreshAt = null;
+            UpdateAutoRefreshStatusText();
             return;
         }
 
@@ -365,6 +374,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _autoRefreshTimer.Stop();
         _autoRefreshTimer.Start();
         NextAutoRefreshAt = DateTimeOffset.Now.AddMinutes(minutes);
+        UpdateAutoRefreshStatusText();
     }
 
     private void StopAutoRefresh()
@@ -378,6 +388,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         _autoRefreshFailureStreak = 0;
         AutoRefreshPaused = false;
+        UpdateAutoRefreshStatusText();
     }
 
     private void OnAutoRefreshTimerTick(object? sender, EventArgs e)
@@ -429,11 +440,30 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 NextAutoRefreshAt = null;
                 StatusMessage = "자동 분류가 3회 연속 실패하여 일시 중지되었습니다.";
                 _dialogService.ShowWarning(StatusMessage, "자동 분류");
+                UpdateAutoRefreshStatusText();
                 return;
             }
         }
 
         ResetAutoRefreshTimer();
+    }
+
+    private void UpdateAutoRefreshStatusText()
+    {
+        var minutes = Math.Max(0, _settingsMonitor.CurrentValue.AutoRefreshIntervalMinutes);
+        if (minutes <= 0)
+        {
+            AutoRefreshStatusText = string.Empty;
+            return;
+        }
+
+        if (AutoRefreshPaused)
+        {
+            AutoRefreshStatusText = "자동 분류: 일시 중지";
+            return;
+        }
+
+        AutoRefreshStatusText = $"다음 분류: {minutes}분 후";
     }
 
     private Task LoadSelectedEmailBodyAsync(AnalyzedItem? item)
