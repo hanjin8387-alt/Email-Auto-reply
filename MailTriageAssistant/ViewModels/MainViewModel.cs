@@ -157,6 +157,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private async Task LoadEmailsAsync()
     {
+#if DEBUG
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+#endif
         IsLoading = true;
         StatusMessage = "Outlook에서 메일 헤더를 불러오는 중...";
 
@@ -212,6 +215,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
         finally
         {
             IsLoading = false;
+#if DEBUG
+            sw.Stop();
+            MailTriageAssistant.Helpers.PerfEventSource.Log.Measure("LoadEmailsAsync", sw.ElapsedMilliseconds);
+#endif
         }
     }
 
@@ -306,6 +313,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private async Task GenerateDigestAsync()
     {
+#if DEBUG
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+#endif
         IsLoading = true;
         StatusMessage = "Digest 생성 중...";
 
@@ -365,6 +375,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
         finally
         {
             IsLoading = false;
+#if DEBUG
+            sw.Stop();
+            MailTriageAssistant.Helpers.PerfEventSource.Log.Measure("GenerateDigestAsync", sw.ElapsedMilliseconds);
+#endif
         }
     }
 

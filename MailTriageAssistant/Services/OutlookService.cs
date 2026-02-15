@@ -248,6 +248,10 @@ public sealed class OutlookService : IOutlookService, IDisposable
         var filteredItemsIsSeparate = false;
         object? raw = null;
 
+#if DEBUG
+        var sw = Stopwatch.StartNew();
+#endif
+
         try
         {
             inbox = _session!.GetDefaultFolder(Outlook.OlDefaultFolders.olFolderInbox);
@@ -326,6 +330,10 @@ public sealed class OutlookService : IOutlookService, IDisposable
         }
         finally
         {
+#if DEBUG
+            sw.Stop();
+            MailTriageAssistant.Helpers.PerfEventSource.Log.Measure("FetchInboxHeadersInternal", sw.ElapsedMilliseconds);
+#endif
             SafeReleaseComObject(raw);
             if (filteredItemsIsSeparate)
             {
@@ -373,6 +381,9 @@ public sealed class OutlookService : IOutlookService, IDisposable
         EnsureClassicOutlookOrThrow();
 
         object? raw = null;
+#if DEBUG
+        var sw = Stopwatch.StartNew();
+#endif
         try
         {
             raw = _session!.GetItemFromID(entryId);
@@ -409,6 +420,10 @@ public sealed class OutlookService : IOutlookService, IDisposable
         }
         finally
         {
+#if DEBUG
+            sw.Stop();
+            MailTriageAssistant.Helpers.PerfEventSource.Log.Measure("GetBodyInternal", sw.ElapsedMilliseconds);
+#endif
             SafeReleaseComObject(raw);
         }
     }
