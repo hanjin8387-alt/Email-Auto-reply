@@ -5,6 +5,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using System.Windows.Data;
 using MailTriageAssistant.Helpers;
 using MailTriageAssistant.Models;
 using MailTriageAssistant.Services;
@@ -16,6 +17,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private const string OutlookNotSupportedMessage = "Classic Outlook이 필요합니다. New Outlook(olk.exe)은 지원되지 않습니다.";
     private const string OutlookUnavailableMessage = "Outlook과 연결할 수 없습니다. Classic Outlook 실행 및 상태를 확인해 주세요.";
 
+    public sealed record CategoryFilterOption(string Label, EmailCategory? Category);
+
     private readonly IOutlookService _outlookService;
     private readonly RedactionService _redactionService;
     private readonly ClipboardSecurityHelper _clipboardSecurityHelper;
@@ -26,11 +29,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private AnalyzedItem? _selectedEmail;
     private ReplyTemplate? _selectedTemplate;
+    private CategoryFilterOption _selectedCategoryFilter = null!;
     private string _statusMessage = "대기 중";
     private bool _isLoading;
     private string _teamsUserEmail = string.Empty;
 
     public RangeObservableCollection<AnalyzedItem> Emails { get; } = new();
+    public ICollectionView EmailsView { get; }
+    public List<CategoryFilterOption> CategoryFilterOptions { get; }
     public List<ReplyTemplate> Templates { get; }
 
     public AnalyzedItem? SelectedEmail
@@ -58,6 +64,18 @@ public sealed class MainViewModel : INotifyPropertyChanged
             if (SetProperty(ref _selectedTemplate, value))
             {
                 CommandManager.InvalidateRequerySuggested();
+            }
+        }
+    }
+
+    public CategoryFilterOption SelectedCategoryFilter
+    {
+        get => _selectedCategoryFilter;
+        set
+        {
+            if (SetProperty(ref _selectedCategoryFilter, value))
+            {
+                EmailsView.Refresh();
             }
         }
     }
@@ -117,6 +135,22 @@ public sealed class MainViewModel : INotifyPropertyChanged
         GenerateDigestCommand = new AsyncRelayCommand(GenerateDigestAsync, () => !IsLoading && Emails.Count > 0);
         ReplyCommand = new AsyncRelayCommand(ReplyAsync, () => !IsLoading && SelectedEmail is not null && SelectedTemplate is not null);
         CopySelectedCommand = new RelayCommand(CopySelected, () => SelectedEmail is not null);
+
+        CategoryFilterOptions = new List<CategoryFilterOption>
+        {
+            new("전체", null),
+            new("긴급(Action)", EmailCategory.Action),
+            new("결재(Approval)", EmailCategory.Approval),
+            new("VIP", EmailCategory.VIP),
+            new("미팅(Meeting)", EmailCategory.Meeting),
+            new("뉴스레터", EmailCategory.Newsletter),
+            new("참고(FYI)", EmailCategory.FYI),
+            new("기타", EmailCategory.Other),
+        };
+        _selectedCategoryFilter = CategoryFilterOptions[0];
+
+        EmailsView = CollectionViewSource.GetDefaultView(Emails);
+        EmailsView.Filter = FilterEmailByCategory;
     }
 
     private async Task LoadEmailsAsync()
@@ -154,6 +188,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             }
 
             Emails.AddRange(analyzed.OrderByDescending(i => i.Score).ThenByDescending(i => i.ReceivedTime));
+            EmailsView.Refresh();
 
             StatusMessage = Emails.Count == 0 ? "표시할 메일이 없습니다." : $"메일 {Emails.Count}개 로드 완료";
 
@@ -209,6 +244,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             item.IsBodyLoaded = true;
 
             StatusMessage = "본문 로드 완료";
+            EmailsView.Refresh();
         }
         catch (NotSupportedException)
         {
@@ -257,6 +293,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
                     : _redactionService.Redact(body);
                 item.IsBodyLoaded = true;
             }
+
+            EmailsView.Refresh();
         }
         catch
         {
@@ -297,6 +335,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
                     : _redactionService.Redact(body);
                 item.IsBodyLoaded = true;
             }
+
+            EmailsView.Refresh();
 
             var digest = _digestService.GenerateDigest(top);
             _digestService.OpenTeams(digest, TeamsUserEmail);
@@ -411,6 +451,17 @@ public sealed class MainViewModel : INotifyPropertyChanged
     {
         StatusMessage = OutlookUnavailableMessage;
         _dialogService.ShowInfo(OutlookUnavailableMessage, "Outlook");
+    }
+
+    private bool FilterEmailByCategory(object obj)
+    {
+        if (obj is not AnalyzedItem item)
+        {
+            return false;
+        }
+
+        var category = SelectedCategoryFilter.Category;
+        return category is null || item.Category == category.Value;
     }
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
