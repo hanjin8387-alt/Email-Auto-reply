@@ -41,7 +41,11 @@ public sealed class MainViewModel : INotifyPropertyChanged
             if (SetProperty(ref _selectedEmail, value))
             {
                 CommandManager.InvalidateRequerySuggested();
-                _ = LoadSelectedEmailBodyAsync(value);
+                LoadSelectedEmailBodyAsync(value).SafeFireAndForget(_ =>
+                {
+                    StatusMessage = "본문을 불러오는 중 오류가 발생했습니다.";
+                    _dialogService.ShowError(StatusMessage, "오류");
+                });
             }
         }
     }
