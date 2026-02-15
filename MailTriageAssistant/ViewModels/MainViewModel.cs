@@ -529,6 +529,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private async Task PrefetchTopBodiesAsync(CancellationToken ct)
     {
+        using var _ = MailTriageAssistant.Helpers.PerfScope.Start("PrefetchTopBodiesAsync", _logger);
+
         try
         {
             var top = Emails.Take(10).ToList();

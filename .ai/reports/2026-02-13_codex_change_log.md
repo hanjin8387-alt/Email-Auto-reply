@@ -66,3 +66,13 @@ Plan: `.ai/plans/2026-02-13_perf_master_plan.md`
 - **Perf Before**: n/a
 - **Perf After**: n/a
 - **Notes**: Replaced ad-hoc Stopwatch + PerfEventSource Measure with PerfScope in `FetchInboxHeadersInternal` and `GetBodyInternal`.
+
+## [0-4] bench: Instrument PrefetchTopBodiesAsync with PerfScope
+- **Status**: OK Committed
+- **Files**: `MailTriageAssistant/ViewModels/MainViewModel.cs`
+- **Lines**: +2 / -0
+- **Build**: OK (0 warnings)
+- **Test**: OK (107/107 passed)
+- **Perf Before**: n/a
+- **Perf After**: n/a
+- **Notes**: Added timing emission for `prefetch_ms` via `PrefetchTopBodiesAsync`.
