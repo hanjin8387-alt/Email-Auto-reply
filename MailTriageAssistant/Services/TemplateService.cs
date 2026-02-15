@@ -6,7 +6,7 @@ using MailTriageAssistant.Models;
 
 namespace MailTriageAssistant.Services;
 
-public sealed class TemplateService
+public sealed class TemplateService : ITemplateService
 {
     private const int MaxValueLength = 200;
     private const string MissingValue = "[미입력]";

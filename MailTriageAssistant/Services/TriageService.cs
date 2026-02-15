@@ -5,7 +5,7 @@ using Microsoft.Extensions.Options;
 
 namespace MailTriageAssistant.Services;
 
-public sealed class TriageService
+public sealed class TriageService : ITriageService
 {
     public readonly record struct TriageResult(EmailCategory Category, int Score, string ActionHint, string[] Tags);
 

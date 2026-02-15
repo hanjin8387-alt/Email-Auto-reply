@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 
 namespace MailTriageAssistant.Services;
 
-public sealed class RedactionService
+public sealed class RedactionService : IRedactionService
 {
     private static readonly (Regex Pattern, string Replacement)[] Rules = new[]
     {

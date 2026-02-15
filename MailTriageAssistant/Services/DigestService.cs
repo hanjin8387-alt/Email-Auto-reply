@@ -10,7 +10,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MailTriageAssistant.Services;
 
-public sealed class DigestService
+public sealed class DigestService : IDigestService
 {
     private static readonly Regex EmailRegex = new(
         @"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$",
