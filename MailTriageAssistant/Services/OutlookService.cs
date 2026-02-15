@@ -285,13 +285,13 @@ public sealed class OutlookService : IOutlookService, IDisposable
     {
         EnsureClassicOutlookOrThrow();
 
+        using var _ = MailTriageAssistant.Helpers.PerfScope.Start("FetchInboxHeadersInternal", _logger);
+
         Outlook.MAPIFolder? inbox = null;
         Outlook.Items? items = null;
         Outlook.Items? filteredItems = null;
         var filteredItemsIsSeparate = false;
         object? raw = null;
-
-        var sw = Stopwatch.StartNew();
 
         try
         {
@@ -348,8 +348,7 @@ public sealed class OutlookService : IOutlookService, IDisposable
             }
 
             result.Sort((a, b) => b.ReceivedTime.CompareTo(a.ReceivedTime));
-            sw.Stop();
-            _logger.LogInformation("Fetched inbox headers: {Count} in {ElapsedMs}ms.", result.Count, sw.ElapsedMilliseconds);
+            _logger.LogInformation("Fetched inbox headers: {Count}.", result.Count);
             return result;
         }
         catch (COMException ex)
@@ -377,10 +376,6 @@ public sealed class OutlookService : IOutlookService, IDisposable
         }
         finally
         {
-#if DEBUG
-            sw.Stop();
-            MailTriageAssistant.Helpers.PerfEventSource.Log.Measure("FetchInboxHeadersInternal", sw.ElapsedMilliseconds);
-#endif
             SafeReleaseComObject(raw);
             if (filteredItemsIsSeparate)
             {
@@ -427,8 +422,9 @@ public sealed class OutlookService : IOutlookService, IDisposable
 
         EnsureClassicOutlookOrThrow();
 
+        using var _ = MailTriageAssistant.Helpers.PerfScope.Start("GetBodyInternal", _logger);
+
         object? raw = null;
-        var sw = Stopwatch.StartNew();
         try
         {
             raw = _session!.GetItemFromID(entryId);
@@ -443,8 +439,6 @@ public sealed class OutlookService : IOutlookService, IDisposable
                 body = body[..MaxBodyLength];
             }
 
-            sw.Stop();
-            _logger.LogDebug("Body fetched: {EntryId} ({Length}c) in {ElapsedMs}ms.", entryId, body.Length, sw.ElapsedMilliseconds);
             return body;
         }
         catch (COMException ex)
@@ -472,10 +466,6 @@ public sealed class OutlookService : IOutlookService, IDisposable
         }
         finally
         {
-#if DEBUG
-            sw.Stop();
-            MailTriageAssistant.Helpers.PerfEventSource.Log.Measure("GetBodyInternal", sw.ElapsedMilliseconds);
-#endif
             SafeReleaseComObject(raw);
         }
     }

@@ -56,3 +56,13 @@ Plan: `.ai/plans/2026-02-13_perf_master_plan.md`
 - **Perf Before**: n/a
 - **Perf After**: n/a
 - **Notes**: Added ETW start/stop events; PerfScope now emits start/stop.
+
+## [0-3] bench: Use PerfScope in OutlookService hot paths
+- **Status**: OK Committed
+- **Files**: `MailTriageAssistant/Services/OutlookService.cs`
+- **Lines**: +5 / -15
+- **Build**: OK (0 warnings)
+- **Test**: OK (107/107 passed)
+- **Perf Before**: n/a
+- **Perf After**: n/a
+- **Notes**: Replaced ad-hoc Stopwatch + PerfEventSource Measure with PerfScope in `FetchInboxHeadersInternal` and `GetBodyInternal`.
