@@ -13,6 +13,7 @@
         WindowStartupLocation="CenterScreen">
     <Window.Resources>
         <helpers:ScoreToColorConverter x:Key="ScoreToColor" />
+        <helpers:ScoreToLabelConverter x:Key="ScoreToLabel" />
         <helpers:RedactionConverter x:Key="Redaction" />
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
     </Window.Resources>
@@ -99,6 +100,9 @@
                                                    FontSize="18"
                                                    FontWeight="Bold"
                                                    Foreground="{Binding Score, Converter={StaticResource ScoreToColor}}" />
+                                        <TextBlock Text="{Binding Score, Converter={StaticResource ScoreToLabel}}"
+                                                   FontSize="11"
+                                                   Foreground="{StaticResource Brush.TextMuted}" />
                                         <TextBlock Text="{Binding Category}" FontSize="12" Foreground="{StaticResource Brush.TextTertiary}" />
                                     </StackPanel>
 

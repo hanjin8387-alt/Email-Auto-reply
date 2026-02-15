@@ -1,11 +1,10 @@
 using System;
 using System.Globalization;
 using System.Windows.Data;
-using System.Windows.Media;
 
 namespace MailTriageAssistant.Helpers;
 
-public sealed class ScoreToColorConverter : IValueConverter
+public sealed class ScoreToLabelConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
@@ -16,12 +15,13 @@ public sealed class ScoreToColorConverter : IValueConverter
             _ => 0,
         };
 
-        if (score >= 80) return Brushes.DarkRed;
-        if (score >= 50) return Brushes.DarkGoldenrod;
-        if (score >= 30) return Brushes.DarkGreen;
-        return Brushes.DimGray;
+        if (score >= 80) return "긴급";
+        if (score >= 50) return "중요";
+        if (score >= 30) return "보통";
+        return "참고";
     }
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         => Binding.DoNothing;
 }
+
