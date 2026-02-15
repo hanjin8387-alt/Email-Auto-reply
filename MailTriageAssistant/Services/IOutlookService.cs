@@ -8,6 +8,6 @@ public interface IOutlookService
 {
     Task<List<RawEmailHeader>> FetchInboxHeaders();
     Task<string> GetBody(string entryId);
+    Task OpenItem(string entryId);
     Task CreateDraft(string to, string subject, string body);
 }
-

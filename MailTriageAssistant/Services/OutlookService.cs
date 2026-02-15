@@ -64,6 +64,12 @@ public sealed class OutlookService : IOutlookService, IDisposable
         return InvokeAsync(() => GetBodyInternal(entryId));
     }
 
+    public Task OpenItem(string entryId)
+    {
+        ThrowIfDisposed();
+        return InvokeAsync(() => OpenItemInternal(entryId));
+    }
+
     public Task CreateDraft(string to, string subject, string body)
     {
         ThrowIfDisposed();
@@ -397,6 +403,49 @@ public sealed class OutlookService : IOutlookService, IDisposable
         {
             ResetConnection();
             throw new InvalidOperationException("Outlook 본문을 가져오는 중 오류가 발생했습니다.");
+        }
+        finally
+        {
+            SafeReleaseComObject(raw);
+        }
+    }
+
+    private void OpenItemInternal(string entryId)
+    {
+        if (string.IsNullOrWhiteSpace(entryId))
+        {
+            return;
+        }
+
+        EnsureClassicOutlookOrThrow();
+
+        object? raw = null;
+        try
+        {
+            raw = _session!.GetItemFromID(entryId);
+            if (raw is Outlook.MailItem mail)
+            {
+                mail.Display(false);
+            }
+        }
+        catch (COMException)
+        {
+            ResetConnection();
+            throw new InvalidOperationException(
+                "Outlook 항목을 열 수 없습니다. Classic Outlook 상태를 확인해 주세요.");
+        }
+        catch (NotSupportedException)
+        {
+            throw;
+        }
+        catch (InvalidOperationException)
+        {
+            throw;
+        }
+        catch
+        {
+            ResetConnection();
+            throw new InvalidOperationException("Outlook 항목을 여는 중 오류가 발생했습니다.");
         }
         finally
         {

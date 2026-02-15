@@ -108,6 +108,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ICommand GenerateDigestCommand { get; }
     public ICommand ReplyCommand { get; }
     public ICommand CopySelectedCommand { get; }
+    public ICommand OpenInOutlookCommand { get; }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -135,6 +136,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         GenerateDigestCommand = new AsyncRelayCommand(GenerateDigestAsync, () => !IsLoading && Emails.Count > 0);
         ReplyCommand = new AsyncRelayCommand(ReplyAsync, () => !IsLoading && SelectedEmail is not null && SelectedTemplate is not null);
         CopySelectedCommand = new RelayCommand(CopySelected, () => SelectedEmail is not null);
+        OpenInOutlookCommand = new AsyncRelayCommand(OpenInOutlookAsync, () => !IsLoading && SelectedEmail is not null);
 
         CategoryFilterOptions = new List<CategoryFilterOption>
         {
@@ -418,6 +420,46 @@ public sealed class MainViewModel : INotifyPropertyChanged
         finally
         {
             IsLoading = false;
+        }
+    }
+
+    private async Task OpenInOutlookAsync()
+    {
+        if (SelectedEmail is null)
+        {
+            return;
+        }
+
+        var setLoading = !IsLoading;
+        if (setLoading)
+        {
+            IsLoading = true;
+        }
+
+        try
+        {
+            await _outlookService.OpenItem(SelectedEmail.EntryId).ConfigureAwait(true);
+            StatusMessage = "Outlook에서 메일을 열었습니다.";
+        }
+        catch (NotSupportedException)
+        {
+            ShowOutlookNotSupported();
+        }
+        catch (InvalidOperationException)
+        {
+            ShowOutlookUnavailable();
+        }
+        catch
+        {
+            StatusMessage = "Outlook에서 메일을 여는 중 오류가 발생했습니다.";
+            _dialogService.ShowError(StatusMessage, "오류");
+        }
+        finally
+        {
+            if (setLoading)
+            {
+                IsLoading = false;
+            }
         }
     }
 
