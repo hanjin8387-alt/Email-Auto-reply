@@ -61,10 +61,13 @@ public partial class App : Application
     private static void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
         e.Handled = true;
-        MessageBox.Show(
+
+        // Use IDialogService to avoid direct MessageBox calls (testability + single UI abstraction).
+        var dialog = (sender as App)?._serviceProvider?.GetService<IDialogService>()
+            ?? new WpfDialogService();
+
+        dialog.ShowError(
             "예기치 않은 오류가 발생했습니다. Outlook 상태를 확인한 뒤 다시 시도해 주세요.",
-            "MailTriageAssistant",
-            MessageBoxButton.OK,
-            MessageBoxImage.Error);
+            "MailTriageAssistant");
     }
 }

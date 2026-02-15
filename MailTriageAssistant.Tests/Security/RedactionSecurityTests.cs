@@ -8,6 +8,13 @@ namespace MailTriageAssistant.Tests.Security;
 
 public sealed class RedactionSecurityTests
 {
+    private sealed class NullDialogService : IDialogService
+    {
+        public void ShowInfo(string message, string title) { }
+        public void ShowWarning(string message, string title) { }
+        public void ShowError(string message, string title) { }
+    }
+
     [Fact]
     public void Redact_FullwidthDigits_CannotBypassPhoneMasking()
     {
@@ -69,7 +76,7 @@ public sealed class RedactionSecurityTests
     {
         var redaction = new RedactionService();
         var clipboard = new ClipboardSecurityHelper(redaction);
-        var sut = new DigestService(clipboard, redaction);
+        var sut = new DigestService(clipboard, redaction, new NullDialogService());
 
         var digest = sut.GenerateDigest(new List<AnalyzedItem>
         {
@@ -88,4 +95,3 @@ public sealed class RedactionSecurityTests
         digest.Should().Contain("\\[x\\]\\(y\\)\\!\\<z\\>");
     }
 }
-

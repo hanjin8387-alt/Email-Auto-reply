@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Windows;
 using MailTriageAssistant.Models;
 
 namespace MailTriageAssistant.Services;
@@ -17,11 +16,13 @@ public sealed class DigestService
 
     private readonly ClipboardSecurityHelper _clipboardHelper;
     private readonly RedactionService _redactionService;
+    private readonly IDialogService _dialogService;
 
-    public DigestService(ClipboardSecurityHelper clipboardHelper, RedactionService redactionService)
+    public DigestService(ClipboardSecurityHelper clipboardHelper, RedactionService redactionService, IDialogService dialogService)
     {
         _clipboardHelper = clipboardHelper ?? throw new ArgumentNullException(nameof(clipboardHelper));
         _redactionService = redactionService ?? throw new ArgumentNullException(nameof(redactionService));
+        _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
     }
 
     public string GenerateDigest(IReadOnlyList<AnalyzedItem> items)
@@ -101,11 +102,9 @@ public sealed class DigestService
             return;
         }
 
-        MessageBox.Show(
-            "Teams를 열 수 없습니다.\n요약이 클립보드에 복사되었으니 직접 붙여넣어 주세요.",
-            "Teams 연결 실패",
-            MessageBoxButton.OK,
-            MessageBoxImage.Information);
+        _dialogService.ShowInfo(
+            "Teams를 열 수 없습니다.\n요약이 클립보드에 복사되었으니 Teams에 직접 붙여넣어 주세요.",
+            "Teams 연결 실패");
     }
 
     private static bool TryOpenUrl(string url)
