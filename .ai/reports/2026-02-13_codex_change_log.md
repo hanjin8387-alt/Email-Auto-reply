@@ -126,3 +126,13 @@ Plan: `.ai/plans/2026-02-13_perf_master_plan.md`
 - **Perf Before**: n/a
 - **Perf After**: fewer COM calls during prefetch
 - **Notes**: `PrefetchTopBodiesAsync` now uses `GetBodies` (single COM call). Status message is shown only if body fetch exceeds 200ms.
+
+## [1-3] perf: Batch digest body loading and await prefetch
+- **Status**: OK Committed
+- **Files**: `MailTriageAssistant/ViewModels/MainViewModel.cs`
+- **Lines**: +43 / -19
+- **Build**: OK (0 warnings)
+- **Test**: OK (107/107 passed)
+- **Perf Before**: n/a
+- **Perf After**: fewer COM calls during digest; less redundant body loading
+- **Notes**: Track and await the latest prefetch task, then use `GetBodies` to load only missing bodies before digest generation.

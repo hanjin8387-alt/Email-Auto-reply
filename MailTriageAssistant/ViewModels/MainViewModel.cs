@@ -37,6 +37,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private readonly DispatcherTimer _autoRefreshTimer;
     private CancellationTokenSource? _autoRefreshCts;
     private int _autoRefreshFailureStreak;
+    private Task _prefetchTask = Task.CompletedTask;
 
     private AnalyzedItem? _selectedEmail;
     private ReplyTemplate? _selectedTemplate;
@@ -265,7 +266,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
             StatusMessage = Emails.Count == 0 ? "표시할 메일이 없습니다." : $"메일 {Emails.Count}개 로드 완료";
             _logger.LogInformation("LoadEmails completed: {Count} items.", Emails.Count);
 
-            PrefetchTopBodiesAsync(ct).SafeFireAndForget();
+            _prefetchTask = PrefetchTopBodiesAsync(ct);
+            _prefetchTask.SafeFireAndForget();
             return LoadEmailsOutcome.Success;
         }
         catch (OperationCanceledException)
@@ -612,29 +614,51 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 .Take(10)
                 .ToList();
 
-            foreach (var item in top)
+            var prefetchTask = _prefetchTask;
+            try
             {
-                ct.ThrowIfCancellationRequested();
-                if (item.IsBodyLoaded)
-                {
-                    continue;
-                }
-
-                var body = await _outlookService.GetBody(item.EntryId, ct).ConfigureAwait(true);
-                var triage = _triageService.AnalyzeWithBody(item.SenderEmail, item.Subject, body);
-
-                item.Category = triage.Category;
-                item.Score = triage.Score;
-                item.ActionHint = triage.ActionHint;
-                item.Tags = triage.Tags;
-
-                item.RedactedSummary = string.IsNullOrWhiteSpace(body)
-                    ? "(본문이 비어 있습니다.)"
-                    : _redactionService.Redact(body);
-                item.IsBodyLoaded = true;
+                await prefetchTask.ConfigureAwait(true);
+            }
+            catch
+            {
+                // Ignore prefetch failures.
             }
 
-            EmailsView.Refresh();
+            var missing = top
+                .Where(i => !i.IsBodyLoaded && !string.IsNullOrWhiteSpace(i.EntryId))
+                .ToList();
+            if (missing.Count > 0)
+            {
+                var entryIds = missing
+                    .Select(i => i.EntryId)
+                    .Distinct(StringComparer.Ordinal)
+                    .ToList();
+
+                var bodies = await _outlookService.GetBodies(entryIds, ct).ConfigureAwait(true);
+
+                foreach (var item in missing)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (!bodies.TryGetValue(item.EntryId, out var body))
+                    {
+                        continue;
+                    }
+
+                    var triage = _triageService.AnalyzeWithBody(item.SenderEmail, item.Subject, body);
+
+                    item.Category = triage.Category;
+                    item.Score = triage.Score;
+                    item.ActionHint = triage.ActionHint;
+                    item.Tags = triage.Tags;
+
+                    item.RedactedSummary = string.IsNullOrWhiteSpace(body)
+                        ? "(본문이 비어 있습니다.)"
+                        : _redactionService.Redact(body);
+                    item.IsBodyLoaded = true;
+                }
+
+                EmailsView.Refresh();
+            }
 
             var digest = _digestService.GenerateDigest(top);
             _sessionStats.RecordDigestGenerated();
