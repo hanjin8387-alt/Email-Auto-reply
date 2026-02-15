@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
+using MailTriageAssistant.Helpers;
 using MailTriageAssistant.Models;
 using MailTriageAssistant.Services;
 
@@ -30,7 +30,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private bool _isLoading;
     private string _teamsUserEmail = string.Empty;
 
-    public ObservableCollection<AnalyzedItem> Emails { get; } = new();
+    public RangeObservableCollection<AnalyzedItem> Emails { get; } = new();
     public List<ReplyTemplate> Templates { get; }
 
     public AnalyzedItem? SelectedEmail
@@ -147,10 +147,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 });
             }
 
-            foreach (var item in analyzed.OrderByDescending(i => i.Score).ThenByDescending(i => i.ReceivedTime))
-            {
-                Emails.Add(item);
-            }
+            Emails.AddRange(analyzed.OrderByDescending(i => i.Score).ThenByDescending(i => i.ReceivedTime));
 
             StatusMessage = Emails.Count == 0 ? "표시할 메일이 없습니다." : $"메일 {Emails.Count}개 로드 완료";
         }
