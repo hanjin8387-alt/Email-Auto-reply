@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:helpers="clr-namespace:MailTriageAssistant.Helpers"
         mc:Ignorable="d"
-        Title="메일 분류 도우미"
+        Title="{DynamicResource Str.MainWindow.Title}"
         Height="720"
         Width="1100"
         MinHeight="600"
@@ -31,31 +31,31 @@
         </Grid.ColumnDefinitions>
 
         <DockPanel Grid.Row="0" Grid.ColumnSpan="2" LastChildFill="False" Margin="0,0,0,8">
-            <Button Content="메일 분류 실행"
+            <Button Content="{DynamicResource Str.Button.LoadEmails}"
                     Command="{Binding LoadEmailsCommand}"
                     MinWidth="140"
                     Padding="10,6"
                     Margin="0,0,8,0"
-                    AutomationProperties.Name="메일 분류 실행"
-                    ToolTip="Outlook Inbox에서 최근 메일을 불러와 우선순위를 계산합니다."
+                    AutomationProperties.Name="{DynamicResource Str.Automation.LoadEmails}"
+                    ToolTip="{DynamicResource Str.Tooltip.LoadEmails}"
                     TabIndex="0" />
-            <Button Content="Digest 복사 + Teams 열기"
+            <Button Content="{DynamicResource Str.Button.GenerateDigestTeams}"
                     Command="{Binding GenerateDigestCommand}"
                     MinWidth="200"
                     Padding="10,6"
                     Margin="0,0,16,0"
-                    AutomationProperties.Name="Digest 복사 및 Teams 열기"
-                    ToolTip="우선순위 상위 메일 Digest를 복사하고 Teams를 엽니다."
+                    AutomationProperties.Name="{DynamicResource Str.Automation.GenerateDigestTeams}"
+                    ToolTip="{DynamicResource Str.Tooltip.GenerateDigestTeams}"
                     TabIndex="1" />
 
-            <TextBlock Text="Teams 사용자 이메일:"
+            <TextBlock Text="{DynamicResource Str.Label.TeamsUserEmail}"
                        VerticalAlignment="Center"
                        Margin="0,0,6,0" />
             <TextBox Text="{Binding TeamsUserEmail, UpdateSourceTrigger=PropertyChanged}"
                      Width="260"
                      VerticalAlignment="Center"
-                     AutomationProperties.Name="Teams 사용자 이메일 입력"
-                     ToolTip="Teams에서 채팅을 열 사용자 이메일 주소 (옵션)"
+                     AutomationProperties.Name="{DynamicResource Str.Automation.TeamsUserEmailInput}"
+                     ToolTip="{DynamicResource Str.Tooltip.TeamsUserEmail}"
                      TabIndex="2" />
 
             <ProgressBar IsIndeterminate="True"
@@ -79,7 +79,7 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
-                    <TextBlock Text="우선순위 메일" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    <TextBlock Text="{DynamicResource Str.Header.PriorityEmails}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
 
                     <ComboBox Grid.Column="1"
                               ItemsSource="{Binding CategoryFilterOptions}"
@@ -87,8 +87,8 @@
                               DisplayMemberPath="Label"
                               MinWidth="180"
                               Margin="10,0,0,0"
-                              AutomationProperties.Name="카테고리 필터"
-                              ToolTip="선택한 카테고리만 메일 목록에 표시합니다."
+                              AutomationProperties.Name="{DynamicResource Str.Automation.CategoryFilter}"
+                              ToolTip="{DynamicResource Str.Tooltip.CategoryFilter}"
                               TabIndex="3" />
                 </Grid>
 
@@ -96,8 +96,8 @@
                     <ListBox ItemsSource="{Binding EmailsView}"
                              SelectedItem="{Binding SelectedEmail, Mode=TwoWay}"
                              BorderThickness="0"
-                             AutomationProperties.Name="메일 목록"
-                             ToolTip="우선순위 기준으로 정렬된 메일 목록"
+                             AutomationProperties.Name="{DynamicResource Str.Automation.EmailList}"
+                             ToolTip="{DynamicResource Str.Tooltip.EmailList}"
                              TabIndex="4"
                              ScrollViewer.CanContentScroll="True"
                              VirtualizingStackPanel.IsVirtualizing="True"
@@ -171,11 +171,11 @@
                                                 <TextBlock Text="{Binding ReceivedTime, StringFormat={}{0:yyyy-MM-dd HH:mm}}"
                                                            FontSize="11"
                                                            Foreground="{StaticResource Brush.TextMuted}" />
-                                                <TextBlock Text="  📎"
+                                                <TextBlock Text="{DynamicResource Str.Text.AttachmentMarker}"
                                                            FontSize="11"
                                                            Foreground="{StaticResource Brush.TextMuted}"
                                                            Visibility="{Binding HasAttachments, Converter={StaticResource BoolToVis}}"
-                                                           ToolTip="첨부파일 있음" />
+                                                           ToolTip="{DynamicResource Str.Tooltip.Attachment}" />
                                             </StackPanel>
                                         </StackPanel>
                                     </Grid>
@@ -201,12 +201,12 @@
                             </Style>
                         </Border.Style>
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <TextBlock Text="표시할 메일이 없습니다"
+                            <TextBlock Text="{DynamicResource Str.Empty.EmailList.Title}"
                                        FontSize="14"
                                        FontWeight="SemiBold"
                                        Foreground="{StaticResource Brush.TextPrimary}"
                                        HorizontalAlignment="Center" />
-                            <TextBlock Text="상단의 '메일 분류 실행'을 눌러 Outlook에서 불러오세요."
+                            <TextBlock Text="{DynamicResource Str.Empty.EmailList.Body}"
                                        Margin="0,6,0,0"
                                        Foreground="{StaticResource Brush.TextMuted}"
                                        TextAlignment="Center" />
@@ -253,7 +253,7 @@
                     </StackPanel>
                 </StackPanel>
 
-                <TextBlock Grid.Row="1" Text="마스킹된 본문 요약" FontWeight="SemiBold" Margin="0,12,0,6" />
+                <TextBlock Grid.Row="1" Text="{DynamicResource Str.Label.RedactedSummary}" FontWeight="SemiBold" Margin="0,12,0,6" />
 
                 <TextBox Grid.Row="2"
                          Text="{Binding SelectedEmail.RedactedSummary}"
@@ -276,51 +276,51 @@
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Grid.Column="0">
-                        <TextBlock Text="답장 템플릿" FontWeight="SemiBold" Margin="0,0,0,6" />
+                        <TextBlock Text="{DynamicResource Str.Label.ReplyTemplate}" FontWeight="SemiBold" Margin="0,0,0,6" />
                         <ComboBox ItemsSource="{Binding Templates}"
                                   SelectedItem="{Binding SelectedTemplate, Mode=TwoWay}"
                                   DisplayMemberPath="Title"
                                   MinWidth="280"
-                                  AutomationProperties.Name="답장 템플릿 선택"
-                                  ToolTip="선택한 템플릿으로 Outlook 답장 초안을 생성합니다."
+                                  AutomationProperties.Name="{DynamicResource Str.Automation.ReplyTemplateSelect}"
+                                  ToolTip="{DynamicResource Str.Tooltip.ReplyTemplateSelect}"
                                   TabIndex="5" />
                     </StackPanel>
 
                     <Button Grid.Column="1"
-                            Content="Outlook에서 열기"
+                            Content="{DynamicResource Str.Button.OpenInOutlook}"
                             Command="{Binding OpenInOutlookCommand}"
                             MinWidth="140"
                             Padding="10,6"
                             Margin="12,18,0,0"
-                            AutomationProperties.Name="Outlook에서 열기"
-                            ToolTip="선택한 메일을 Classic Outlook에서 엽니다."
+                            AutomationProperties.Name="{DynamicResource Str.Button.OpenInOutlook}"
+                            ToolTip="{DynamicResource Str.Tooltip.OpenInOutlook}"
                             TabIndex="6" />
                     <Button Grid.Column="2"
-                            Content="Copilot용 복사"
+                            Content="{DynamicResource Str.Button.CopyForCopilot}"
                             Command="{Binding CopySelectedCommand}"
                             MinWidth="140"
                             Padding="10,6"
                             Margin="8,18,0,0"
-                            AutomationProperties.Name="요약 복사"
-                            ToolTip="선택한 메일의 마스킹된 요약을 클립보드에 복사합니다. (30초 후 자동 삭제)"
+                            AutomationProperties.Name="{DynamicResource Str.Button.CopyForCopilot}"
+                            ToolTip="{DynamicResource Str.Tooltip.CopyForCopilot}"
                             TabIndex="7" />
                     <Button Grid.Column="3"
-                            Content="템플릿 답장"
+                            Content="{DynamicResource Str.Button.TemplateReply}"
                             Command="{Binding ReplyCommand}"
                             MinWidth="160"
                             Padding="10,6"
                             Margin="8,18,0,0"
-                            AutomationProperties.Name="템플릿 답장"
-                            ToolTip="선택한 템플릿으로 Outlook 답장 초안을 생성합니다."
+                            AutomationProperties.Name="{DynamicResource Str.Button.TemplateReply}"
+                            ToolTip="{DynamicResource Str.Tooltip.TemplateReply}"
                             TabIndex="8" />
                     <Button Grid.Column="4"
-                            Content="Digest 복사 + Teams"
+                            Content="{DynamicResource Str.Button.DigestCopyTeams}"
                             Command="{Binding GenerateDigestCommand}"
                             MinWidth="170"
                             Padding="10,6"
                             Margin="8,18,0,0"
-                            AutomationProperties.Name="Digest 복사 및 Teams 열기"
-                            ToolTip="우선순위 상위 메일 Digest를 복사하고 Teams를 엽니다."
+                            AutomationProperties.Name="{DynamicResource Str.Automation.GenerateDigestTeams}"
+                            ToolTip="{DynamicResource Str.Tooltip.DigestCopyTeams}"
                             TabIndex="9" />
                 </Grid>
                 </Grid>
@@ -341,12 +341,12 @@
                         </Style>
                     </Border.Style>
                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <TextBlock Text="메일을 선택하세요"
+                        <TextBlock Text="{DynamicResource Str.Empty.Selection.Title}"
                                    FontSize="16"
                                    FontWeight="SemiBold"
                                    Foreground="{StaticResource Brush.TextPrimary}"
                                    HorizontalAlignment="Center" />
-                        <TextBlock Text="왼쪽 목록에서 메일을 선택하면 마스킹된 요약이 표시됩니다."
+                        <TextBlock Text="{DynamicResource Str.Empty.Selection.Body}"
                                    Margin="0,6,0,0"
                                    Foreground="{StaticResource Brush.TextMuted}"
                                    TextAlignment="Center" />
