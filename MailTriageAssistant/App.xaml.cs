@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using System.IO;
 using System.Windows;
 using System.Windows.Threading;
@@ -24,6 +25,8 @@ public partial class App : Application
         var services = new ServiceCollection();
         ConfigureServices(services);
         _serviceProvider = services.BuildServiceProvider();
+
+        TryApplyUserVipOverrides(_serviceProvider);
 
         _serviceProvider.GetRequiredService<ILogger<App>>()
             .LogInformation("App started.");
@@ -80,6 +83,7 @@ public partial class App : Application
 
         services.AddSingleton<SessionStatsService>();
         services.AddSingleton<IDialogService, WpfDialogService>();
+        services.AddSingleton<ISettingsService, JsonSettingsService>();
         services.AddSingleton<RedactionService>();
         services.AddSingleton<IRedactionService>(sp => sp.GetRequiredService<RedactionService>());
         services.AddSingleton<ClipboardSecurityHelper>();
@@ -153,5 +157,35 @@ public partial class App : Application
         dialog.ShowError(
             "예기치 않은 오류가 발생했습니다. Outlook 상태를 확인한 뒤 다시 시도해 주세요.",
             "MailTriageAssistant");
+    }
+
+    private static void TryApplyUserVipOverrides(IServiceProvider services)
+    {
+        try
+        {
+            var settings = services.GetService<ISettingsService>();
+            if (settings is null)
+            {
+                return;
+            }
+
+            var vip = settings.LoadVipSendersAsync().GetAwaiter().GetResult();
+            if (vip.Count <= 0)
+            {
+                return;
+            }
+
+            var triageOptions = services.GetService<IOptionsMonitor<TriageSettings>>();
+            if (triageOptions?.CurrentValue is null)
+            {
+                return;
+            }
+
+            triageOptions.CurrentValue.VipSenders = vip.ToArray();
+        }
+        catch
+        {
+            // Ignore user settings load failures; app should still run with appsettings defaults.
+        }
     }
 }
