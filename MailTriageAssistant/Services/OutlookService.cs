@@ -13,8 +13,11 @@ namespace MailTriageAssistant.Services;
 
 public sealed class OutlookService : IOutlookService, IDisposable
 {
+    private static readonly TimeSpan ComTimeout = TimeSpan.FromSeconds(30);
+
     private readonly Thread _comThread;
     private readonly Dispatcher _comDispatcher;
+    private readonly SemaphoreSlim _comLock = new(initialCount: 1, maxCount: 1);
     private bool _disposed;
 
     private Outlook.Application? _app;
@@ -108,11 +111,45 @@ public sealed class OutlookService : IOutlookService, IDisposable
         }
     }
 
-    private Task<T> InvokeAsync<T>(Func<T> func)
-        => _comDispatcher.InvokeAsync(func).Task;
+    private async Task<T> InvokeAsync<T>(Func<T> func)
+    {
+        await _comLock.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            var task = _comDispatcher.InvokeAsync(func).Task;
+            var completed = await Task.WhenAny(task, Task.Delay(ComTimeout)).ConfigureAwait(false);
+            if (!ReferenceEquals(completed, task))
+            {
+                throw new TimeoutException("Outlook COM 작업이 30초 내에 완료되지 않았습니다.");
+            }
 
-    private Task InvokeAsync(Action action)
-        => _comDispatcher.InvokeAsync(action).Task;
+            return await task.ConfigureAwait(false);
+        }
+        finally
+        {
+            _comLock.Release();
+        }
+    }
+
+    private async Task InvokeAsync(Action action)
+    {
+        await _comLock.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            var task = _comDispatcher.InvokeAsync(action).Task;
+            var completed = await Task.WhenAny(task, Task.Delay(ComTimeout)).ConfigureAwait(false);
+            if (!ReferenceEquals(completed, task))
+            {
+                throw new TimeoutException("Outlook COM 작업이 30초 내에 완료되지 않았습니다.");
+            }
+
+            await task.ConfigureAwait(false);
+        }
+        finally
+        {
+            _comLock.Release();
+        }
+    }
 
     private void ThrowIfDisposed()
     {
