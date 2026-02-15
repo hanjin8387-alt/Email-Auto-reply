@@ -81,14 +81,18 @@ public partial class App : Application
         services.AddSingleton<SessionStatsService>();
         services.AddSingleton<IDialogService, WpfDialogService>();
         services.AddSingleton<RedactionService>();
+        services.AddSingleton<IRedactionService>(sp => sp.GetRequiredService<RedactionService>());
         services.AddSingleton<ClipboardSecurityHelper>();
         services.AddSingleton<IOutlookService, OutlookService>();
         services.AddSingleton<TriageService>();
+        services.AddSingleton<ITriageService>(sp => sp.GetRequiredService<TriageService>());
         services.AddSingleton<DigestService>();
+        services.AddSingleton<IDigestService>(sp => sp.GetRequiredService<DigestService>());
         services.AddSingleton<TemplateService>();
+        services.AddSingleton<ITemplateService>(sp => sp.GetRequiredService<TemplateService>());
 
         services.AddSingleton<MainViewModel>();
-        services.AddSingleton<MainWindow>();
+        services.AddTransient<MainWindow>();
     }
 
     private static void ConfigureLogging(IServiceCollection services)
