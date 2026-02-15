@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:helpers="clr-namespace:MailTriageAssistant.Helpers"
         mc:Ignorable="d"
-        Title="MailTriageAssistant"
+        Title="메일 분류 도우미"
         Height="720"
         Width="1100"
         MinHeight="600"
@@ -30,7 +30,7 @@
         </Grid.ColumnDefinitions>
 
         <DockPanel Grid.Row="0" Grid.ColumnSpan="2" LastChildFill="False" Margin="0,0,0,8">
-            <Button Content="Run Triage Now"
+            <Button Content="메일 분류 실행"
                     Command="{Binding LoadEmailsCommand}"
                     MinWidth="140"
                     Padding="10,6"
@@ -38,7 +38,7 @@
                     AutomationProperties.Name="메일 분류 실행"
                     ToolTip="Outlook Inbox에서 최근 메일을 불러와 우선순위를 계산합니다."
                     TabIndex="0" />
-            <Button Content="Copy Digest &amp; Open Teams"
+            <Button Content="Digest 복사 + Teams 열기"
                     Command="{Binding GenerateDigestCommand}"
                     MinWidth="200"
                     Padding="10,6"
@@ -72,7 +72,7 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <TextBlock Text="Inbox Priority" FontSize="16" FontWeight="SemiBold" Margin="4,2,0,8" />
+                <TextBlock Text="우선순위 메일" FontSize="16" FontWeight="SemiBold" Margin="4,2,0,8" />
 
                 <Grid Grid.Row="1">
                     <ListBox ItemsSource="{Binding Emails}"
@@ -183,7 +183,7 @@
                     </StackPanel>
                 </StackPanel>
 
-                <TextBlock Grid.Row="1" Text="Redacted Body Snippet" FontWeight="SemiBold" Margin="0,12,0,6" />
+                <TextBlock Grid.Row="1" Text="마스킹된 본문 요약" FontWeight="SemiBold" Margin="0,12,0,6" />
 
                 <TextBox Grid.Row="2"
                          Text="{Binding SelectedEmail.RedactedSummary}"
@@ -205,7 +205,7 @@
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Grid.Column="0">
-                        <TextBlock Text="Reply Template" FontWeight="SemiBold" Margin="0,0,0,6" />
+                        <TextBlock Text="답장 템플릿" FontWeight="SemiBold" Margin="0,0,0,6" />
                         <ComboBox ItemsSource="{Binding Templates}"
                                   SelectedItem="{Binding SelectedTemplate, Mode=TwoWay}"
                                   DisplayMemberPath="Title"
@@ -216,7 +216,7 @@
                     </StackPanel>
 
                     <Button Grid.Column="1"
-                            Content="Copy For Copilot"
+                            Content="Copilot용 복사"
                             Command="{Binding CopySelectedCommand}"
                             MinWidth="140"
                             Padding="10,6"
@@ -225,7 +225,7 @@
                             ToolTip="선택한 메일의 마스킹된 요약을 클립보드에 복사합니다. (30초 후 자동 삭제)"
                             TabIndex="5" />
                     <Button Grid.Column="2"
-                            Content="Reply With Template"
+                            Content="템플릿 답장"
                             Command="{Binding ReplyCommand}"
                             MinWidth="160"
                             Padding="10,6"
@@ -234,7 +234,7 @@
                             ToolTip="선택한 템플릿으로 Outlook 답장 초안을 생성합니다."
                             TabIndex="6" />
                     <Button Grid.Column="3"
-                            Content="Copy Digest &amp; Teams"
+                            Content="Digest 복사 + Teams"
                             Command="{Binding GenerateDigestCommand}"
                             MinWidth="170"
                             Padding="10,6"
