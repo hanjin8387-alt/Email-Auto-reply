@@ -156,6 +156,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
             Emails.AddRange(analyzed.OrderByDescending(i => i.Score).ThenByDescending(i => i.ReceivedTime));
 
             StatusMessage = Emails.Count == 0 ? "표시할 메일이 없습니다." : $"메일 {Emails.Count}개 로드 완료";
+
+            PrefetchTopBodiesAsync().SafeFireAndForget();
         }
         catch (NotSupportedException)
         {
@@ -214,6 +216,38 @@ public sealed class MainViewModel : INotifyPropertyChanged
         {
             StatusMessage = "본문을 불러오는 중 오류가 발생했습니다.";
             _dialogService.ShowError(StatusMessage, "오류");
+        }
+    }
+
+    private async Task PrefetchTopBodiesAsync()
+    {
+        try
+        {
+            var top = Emails.Take(10).ToList();
+            foreach (var item in top)
+            {
+                if (item.IsBodyLoaded)
+                {
+                    continue;
+                }
+
+                var body = await _outlookService.GetBody(item.EntryId).ConfigureAwait(true);
+                var triage = _triageService.AnalyzeWithBody(item.SenderEmail, item.Subject, body);
+
+                item.Category = triage.Category;
+                item.Score = triage.Score;
+                item.ActionHint = triage.ActionHint;
+                item.Tags = triage.Tags;
+
+                item.RedactedSummary = string.IsNullOrWhiteSpace(body)
+                    ? "(본문이 비어 있습니다.)"
+                    : _redactionService.Redact(body);
+                item.IsBodyLoaded = true;
+            }
+        }
+        catch
+        {
+            // Background optimization: ignore prefetch failures.
         }
     }
 
