@@ -11,7 +11,7 @@ public sealed class TriageService : ITriageService
 {
     public readonly record struct TriageResult(EmailCategory Category, int Score, string ActionHint, string[] Tags);
 
-    private readonly TriageSettings _settings;
+    private TriageSettings _settings;
     private readonly ILogger<TriageService> _logger;
 
     public TriageService()
@@ -19,14 +19,16 @@ public sealed class TriageService : ITriageService
     {
     }
 
-    public TriageService(IOptions<TriageSettings> options)
-        : this(options?.Value ?? new TriageSettings(), NullLogger<TriageService>.Instance)
+    public TriageService(IOptionsMonitor<TriageSettings> optionsMonitor)
+        : this(optionsMonitor, NullLogger<TriageService>.Instance)
     {
     }
 
-    public TriageService(IOptions<TriageSettings> options, ILogger<TriageService> logger)
-        : this(options?.Value ?? new TriageSettings(), logger)
+    public TriageService(IOptionsMonitor<TriageSettings> optionsMonitor, ILogger<TriageService> logger)
     {
+        _logger = logger ?? NullLogger<TriageService>.Instance;
+        _settings = optionsMonitor?.CurrentValue ?? new TriageSettings();
+        _ = optionsMonitor?.OnChange(updated => _settings = updated);
     }
 
     private TriageService(TriageSettings settings, ILogger<TriageService> logger)

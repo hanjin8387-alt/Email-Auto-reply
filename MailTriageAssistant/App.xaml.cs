@@ -70,7 +70,7 @@ public partial class App : Application
     {
         var configuration = new ConfigurationBuilder()
             .SetBasePath(AppContext.BaseDirectory)
-            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
+            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
             .Build();
 
         services.AddSingleton<IConfiguration>(configuration);
