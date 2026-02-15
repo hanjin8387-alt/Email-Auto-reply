@@ -42,7 +42,7 @@ public sealed class DigestService
 
             var sender = EscapeCell(_redactionService.Redact(senderDisplay));
             var subject = EscapeCell(_redactionService.Redact(item.Subject));
-            var summary = EscapeCell(_redactionService.Redact(item.RedactedSummary));
+            var summary = EscapeCell(item.RedactedSummary);
 
             sb.Append("| ")
               .Append(item.Score)
@@ -71,7 +71,7 @@ public sealed class DigestService
 
     public void OpenTeams(string digest, string? userEmail = null)
     {
-        _clipboardHelper.SecureCopy(digest);
+        _clipboardHelper.SecureCopy(digest, alreadyRedacted: true);
 
         var email = (userEmail ?? string.Empty).Trim();
         var https = string.IsNullOrWhiteSpace(email)

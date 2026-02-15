@@ -16,21 +16,23 @@ public sealed class ClipboardSecurityHelper : IDisposable
         _redactionService = redactionService ?? throw new ArgumentNullException(nameof(redactionService));
     }
 
-    public void SecureCopy(string text)
+    public void SecureCopy(string text, bool alreadyRedacted = false)
     {
         if (_disposed)
         {
             throw new ObjectDisposedException(nameof(ClipboardSecurityHelper));
         }
 
-        // Enforce redaction before anything leaves the app via the clipboard.
-        var redacted = _redactionService.Redact(text ?? string.Empty);
+        // Enforce redaction before anything leaves the app via the clipboard, unless the input is explicitly pre-redacted.
+        var content = alreadyRedacted
+            ? (text ?? string.Empty)
+            : _redactionService.Redact(text ?? string.Empty);
 
         Application.Current.Dispatcher.Invoke(() =>
         {
-            _copiedContent = redacted;
+            _copiedContent = content;
             var dataObj = new DataObject();
-            dataObj.SetData(DataFormats.UnicodeText, redacted);
+            dataObj.SetData(DataFormats.UnicodeText, content);
             dataObj.SetData("ExcludeClipboardContentFromMonitorProcessing", true);
             Clipboard.SetDataObject(dataObj, false);
             StartClearTimer();
