@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using MailTriageAssistant.Models;
 
 namespace MailTriageAssistant.Services;
@@ -111,19 +110,4 @@ public sealed class TemplateService
         return sanitized;
     }
 
-    public async Task SendDraft(
-        IOutlookService outlookService,
-        string recipientEmail,
-        string subject,
-        string templateId,
-        IReadOnlyDictionary<string, string> values)
-    {
-        if (outlookService is null) throw new ArgumentNullException(nameof(outlookService));
-
-        var template = _templates.FirstOrDefault(t => string.Equals(t.Id, templateId, StringComparison.OrdinalIgnoreCase));
-        if (template is null) throw new InvalidOperationException("템플릿을 찾을 수 없습니다.");
-
-        var body = FillTemplate(template.BodyContent, values);
-        await outlookService.CreateDraft(recipientEmail, subject, body).ConfigureAwait(false);
-    }
 }

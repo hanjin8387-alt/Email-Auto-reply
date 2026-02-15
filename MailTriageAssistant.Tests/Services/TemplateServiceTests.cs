@@ -1,9 +1,6 @@
-using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using FluentAssertions;
 using MailTriageAssistant.Services;
-using Moq;
 using Xunit;
 
 namespace MailTriageAssistant.Tests.Services;
@@ -123,54 +120,5 @@ public sealed class TemplateServiceTests
 
         var templates2 = _sut.GetTemplates();
         templates2[0].Title.Should().NotBe("CHANGED");
-    }
-
-    [Fact]
-    public async Task SendDraft_ValidTemplate_CallsOutlookCreateDraft()
-    {
-        var mock = new Mock<IOutlookService>(MockBehavior.Strict);
-        mock.Setup(o => o.CreateDraft(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
-            .Returns(Task.CompletedTask);
-
-        await _sut.SendDraft(
-            mock.Object,
-            recipientEmail: "user@test.com",
-            subject: "SUBJ",
-            templateId: "TMP_01",
-            values: new Dictionary<string, string> { ["TargetDate"] = "2026-02-20" });
-
-        mock.Verify(o => o.CreateDraft(
-            "user@test.com",
-            "SUBJ",
-            It.Is<string>(b => b.Contains("2026-02-20", StringComparison.Ordinal))),
-            Times.Once);
-    }
-
-    [Fact]
-    public async Task SendDraft_InvalidTemplateId_ThrowsInvalidOperation()
-    {
-        var mock = new Mock<IOutlookService>();
-
-        var act = () => _sut.SendDraft(
-            mock.Object,
-            recipientEmail: "user@test.com",
-            subject: "SUBJ",
-            templateId: "INVALID",
-            values: new Dictionary<string, string>());
-
-        await act.Should().ThrowAsync<InvalidOperationException>();
-    }
-
-    [Fact]
-    public async Task SendDraft_NullOutlookService_ThrowsArgNull()
-    {
-        var act = () => _sut.SendDraft(
-            null!,
-            recipientEmail: "user@test.com",
-            subject: "SUBJ",
-            templateId: "TMP_01",
-            values: new Dictionary<string, string>());
-
-        await act.Should().ThrowAsync<ArgumentNullException>();
     }
 }
