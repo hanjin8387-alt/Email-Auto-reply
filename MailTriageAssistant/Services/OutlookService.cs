@@ -8,6 +8,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Threading;
 using MailTriageAssistant.Models;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Outlook = Microsoft.Office.Interop.Outlook;
 
 namespace MailTriageAssistant.Services;
@@ -19,6 +21,7 @@ public sealed class OutlookService : IOutlookService, IDisposable
     private const int MaxBodyLength = 1500;
     private const int RestrictDays = 7;
 
+    private readonly ILogger<OutlookService> _logger;
     private readonly Thread _comThread;
     private readonly Dispatcher _comDispatcher;
     private readonly SemaphoreSlim _comLock = new(initialCount: 1, maxCount: 1);
@@ -29,7 +32,13 @@ public sealed class OutlookService : IOutlookService, IDisposable
     private Outlook.NameSpace? _session;
 
     public OutlookService()
+        : this(NullLogger<OutlookService>.Instance)
     {
+    }
+
+    public OutlookService(ILogger<OutlookService> logger)
+    {
+        _logger = logger ?? NullLogger<OutlookService>.Instance;
         var tcs = new TaskCompletionSource<Dispatcher>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         _comThread = new Thread(() =>
@@ -177,6 +186,7 @@ public sealed class OutlookService : IOutlookService, IDisposable
             _newOutlookChecked = true;
             if (Process.GetProcessesByName("olk").Any())
             {
+                _logger.LogWarning("New Outlook detected (olk.exe). Blocking COM interop.");
                 throw new NotSupportedException(
                     "Classic Outlook이 필요합니다. New Outlook(olk.exe)은 COM Interop을 지원하지 않습니다.");
             }
@@ -192,15 +202,17 @@ public sealed class OutlookService : IOutlookService, IDisposable
             _app = GetActiveOutlookApplication();
             _session = _app.Session;
         }
-        catch (COMException)
+        catch (COMException ex)
         {
+            _logger.LogWarning("Outlook connect failed: {ExceptionType} (HResult={HResult}).", ex.GetType().Name, ex.HResult);
             _app = null;
             _session = null;
             throw new InvalidOperationException(
                 "Outlook이 실행 중이지 않습니다. Classic Outlook을 먼저 실행해 주세요.");
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogWarning("Outlook connect failed: {ExceptionType}.", ex.GetType().Name);
             _app = null;
             _session = null;
             throw new InvalidOperationException(
@@ -248,9 +260,7 @@ public sealed class OutlookService : IOutlookService, IDisposable
         var filteredItemsIsSeparate = false;
         object? raw = null;
 
-#if DEBUG
         var sw = Stopwatch.StartNew();
-#endif
 
         try
         {
@@ -307,24 +317,30 @@ public sealed class OutlookService : IOutlookService, IDisposable
             }
 
             result.Sort((a, b) => b.ReceivedTime.CompareTo(a.ReceivedTime));
+            sw.Stop();
+            _logger.LogInformation("Fetched inbox headers: {Count} in {ElapsedMs}ms.", result.Count, sw.ElapsedMilliseconds);
             return result;
         }
-        catch (COMException)
+        catch (COMException ex)
         {
+            _logger.LogWarning("FetchInboxHeaders failed: {ExceptionType} (HResult={HResult}).", ex.GetType().Name, ex.HResult);
             ResetConnection();
             throw new InvalidOperationException(
                 "Outlook과 통신할 수 없습니다. Classic Outlook이 실행 중인지 확인해 주세요.");
         }
         catch (NotSupportedException)
         {
+            _logger.LogWarning("FetchInboxHeaders blocked: Outlook not supported.");
             throw;
         }
         catch (InvalidOperationException)
         {
+            _logger.LogWarning("FetchInboxHeaders failed: Outlook not available.");
             throw;
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogError("FetchInboxHeaders failed: {ExceptionType}.", ex.GetType().Name);
             ResetConnection();
             throw new InvalidOperationException("메일 헤더를 불러오는 중 오류가 발생했습니다.");
         }
@@ -381,9 +397,7 @@ public sealed class OutlookService : IOutlookService, IDisposable
         EnsureClassicOutlookOrThrow();
 
         object? raw = null;
-#if DEBUG
         var sw = Stopwatch.StartNew();
-#endif
         try
         {
             raw = _session!.GetItemFromID(entryId);
@@ -392,29 +406,36 @@ public sealed class OutlookService : IOutlookService, IDisposable
                 return string.Empty;
             }
 
-        var body = mail.Body ?? string.Empty;
+            var body = mail.Body ?? string.Empty;
             if (body.Length > MaxBodyLength)
             {
                 body = body[..MaxBodyLength];
             }
+
+            sw.Stop();
+            _logger.LogDebug("Body fetched: {EntryId} ({Length}c) in {ElapsedMs}ms.", entryId, body.Length, sw.ElapsedMilliseconds);
             return body;
         }
-        catch (COMException)
+        catch (COMException ex)
         {
+            _logger.LogWarning("GetBody failed: {ExceptionType} (HResult={HResult}).", ex.GetType().Name, ex.HResult);
             ResetConnection();
             throw new InvalidOperationException(
                 "Outlook 본문을 가져오지 못했습니다. Classic Outlook 상태를 확인해 주세요.");
         }
         catch (NotSupportedException)
         {
+            _logger.LogWarning("GetBody blocked: Outlook not supported.");
             throw;
         }
         catch (InvalidOperationException)
         {
+            _logger.LogWarning("GetBody failed: Outlook not available.");
             throw;
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogError("GetBody failed: {ExceptionType}.", ex.GetType().Name);
             ResetConnection();
             throw new InvalidOperationException("Outlook 본문을 가져오는 중 오류가 발생했습니다.");
         }

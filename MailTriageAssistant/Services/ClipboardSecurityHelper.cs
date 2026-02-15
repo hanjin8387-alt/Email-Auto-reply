@@ -1,19 +1,28 @@
 using System;
 using System.Windows;
 using System.Windows.Threading;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MailTriageAssistant.Services;
 
 public sealed class ClipboardSecurityHelper : IDisposable
 {
     private readonly RedactionService _redactionService;
+    private readonly ILogger<ClipboardSecurityHelper> _logger;
     private DispatcherTimer? _clearTimer;
     private string? _copiedContent;
     private bool _disposed;
 
     public ClipboardSecurityHelper(RedactionService redactionService)
+        : this(redactionService, NullLogger<ClipboardSecurityHelper>.Instance)
+    {
+    }
+
+    public ClipboardSecurityHelper(RedactionService redactionService, ILogger<ClipboardSecurityHelper> logger)
     {
         _redactionService = redactionService ?? throw new ArgumentNullException(nameof(redactionService));
+        _logger = logger ?? NullLogger<ClipboardSecurityHelper>.Instance;
     }
 
     public void SecureCopy(string text, bool alreadyRedacted = false)
@@ -37,6 +46,8 @@ public sealed class ClipboardSecurityHelper : IDisposable
             Clipboard.SetDataObject(dataObj, false);
             StartClearTimer();
         });
+
+        _logger.LogInformation("Clipboard set; auto-clear scheduled.");
     }
 
     public void Dispose()
@@ -80,16 +91,22 @@ public sealed class ClipboardSecurityHelper : IDisposable
 
         try
         {
+            var cleared = false;
             if (_copiedContent is not null &&
                 Clipboard.ContainsText() &&
                 string.Equals(Clipboard.GetText(), _copiedContent, StringComparison.Ordinal))
             {
                 Clipboard.Clear();
+                cleared = true;
             }
+
+            _logger.LogInformation(cleared ? "Clipboard cleared." : "Clipboard clear skipped.");
         }
-        catch
+        catch (Exception ex)
         {
             // Ignore clipboard failures (e.g. locked by another process).
+            // Do not log exception messages since they could contain clipboard text from other apps.
+            _logger.LogWarning("Clipboard clear failed: {ExceptionType}.", ex.GetType().Name);
         }
         finally
         {

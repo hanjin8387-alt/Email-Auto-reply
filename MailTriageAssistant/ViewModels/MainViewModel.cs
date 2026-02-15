@@ -9,6 +9,7 @@ using System.Windows.Data;
 using MailTriageAssistant.Helpers;
 using MailTriageAssistant.Models;
 using MailTriageAssistant.Services;
+using Microsoft.Extensions.Logging;
 
 namespace MailTriageAssistant.ViewModels;
 
@@ -26,6 +27,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private readonly DigestService _digestService;
     private readonly TemplateService _templateService;
     private readonly IDialogService _dialogService;
+    private readonly ILogger<MainViewModel> _logger;
 
     private AnalyzedItem? _selectedEmail;
     private ReplyTemplate? _selectedTemplate;
@@ -119,7 +121,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         TriageService triageService,
         DigestService digestService,
         TemplateService templateService,
-        IDialogService dialogService)
+        IDialogService dialogService,
+        ILogger<MainViewModel> logger)
     {
         _outlookService = outlookService ?? throw new ArgumentNullException(nameof(outlookService));
         _redactionService = redactionService ?? throw new ArgumentNullException(nameof(redactionService));
@@ -128,6 +131,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _digestService = digestService ?? throw new ArgumentNullException(nameof(digestService));
         _templateService = templateService ?? throw new ArgumentNullException(nameof(templateService));
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         Templates = _templateService.GetTemplates();
         SelectedTemplate = Templates.FirstOrDefault();
@@ -160,6 +164,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 #if DEBUG
         var sw = System.Diagnostics.Stopwatch.StartNew();
 #endif
+        _logger.LogInformation("LoadEmails started.");
         IsLoading = true;
         StatusMessage = "Outlook에서 메일 헤더를 불러오는 중...";
 
@@ -196,19 +201,23 @@ public sealed class MainViewModel : INotifyPropertyChanged
             EmailsView.Refresh();
 
             StatusMessage = Emails.Count == 0 ? "표시할 메일이 없습니다." : $"메일 {Emails.Count}개 로드 완료";
+            _logger.LogInformation("LoadEmails completed: {Count} items.", Emails.Count);
 
             PrefetchTopBodiesAsync().SafeFireAndForget();
         }
         catch (NotSupportedException)
         {
+            _logger.LogWarning("LoadEmails blocked: Outlook not supported.");
             ShowOutlookNotSupported();
         }
         catch (InvalidOperationException)
         {
+            _logger.LogWarning("LoadEmails failed: Outlook not available.");
             ShowOutlookUnavailable();
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogError("LoadEmails failed: {ExceptionType}.", ex.GetType().Name);
             StatusMessage = "메일을 불러오는 중 오류가 발생했습니다.";
             _dialogService.ShowError(StatusMessage, "오류");
         }

@@ -5,6 +5,8 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using MailTriageAssistant.Models;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MailTriageAssistant.Services;
 
@@ -17,16 +19,29 @@ public sealed class DigestService
     private readonly ClipboardSecurityHelper _clipboardHelper;
     private readonly RedactionService _redactionService;
     private readonly IDialogService _dialogService;
+    private readonly ILogger<DigestService> _logger;
 
     public DigestService(ClipboardSecurityHelper clipboardHelper, RedactionService redactionService, IDialogService dialogService)
+        : this(clipboardHelper, redactionService, dialogService, NullLogger<DigestService>.Instance)
+    {
+    }
+
+    public DigestService(
+        ClipboardSecurityHelper clipboardHelper,
+        RedactionService redactionService,
+        IDialogService dialogService,
+        ILogger<DigestService> logger)
     {
         _clipboardHelper = clipboardHelper ?? throw new ArgumentNullException(nameof(clipboardHelper));
         _redactionService = redactionService ?? throw new ArgumentNullException(nameof(redactionService));
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
+        _logger = logger ?? NullLogger<DigestService>.Instance;
     }
 
     public string GenerateDigest(IReadOnlyList<AnalyzedItem> items)
     {
+        var sw = Stopwatch.StartNew();
+
         var ordered = items
             .OrderByDescending(i => i.Score)
             .ThenByDescending(i => i.ReceivedTime)
@@ -72,6 +87,8 @@ public sealed class DigestService
         sb.AppendLine();
         sb.AppendLine("Context: All PII has been redacted. Do NOT ask for unredacted information.");
 
+        sw.Stop();
+        _logger.LogInformation("Digest generated: {Count} items in {ElapsedMs}ms.", ordered.Count, sw.ElapsedMilliseconds);
         return sb.ToString();
     }
 
@@ -92,16 +109,21 @@ public sealed class DigestService
             ? "msteams:"
             : $"msteams:/l/chat/0/0?users={Uri.EscapeDataString(email)}";
 
+        _logger.LogInformation("OpenTeams requested (hasUserEmail={HasUserEmail}).", !string.IsNullOrWhiteSpace(email));
+
         if (TryOpenUrl(https))
         {
+            _logger.LogInformation("Teams opened via https.");
             return;
         }
 
         if (TryOpenUrl(msteams))
         {
+            _logger.LogInformation("Teams opened via msteams.");
             return;
         }
 
+        _logger.LogWarning("Failed to open Teams via https and msteams.");
         _dialogService.ShowInfo(
             "Teams를 열 수 없습니다.\n요약이 클립보드에 복사되었으니 Teams에 직접 붙여넣어 주세요.",
             "Teams 연결 실패");
