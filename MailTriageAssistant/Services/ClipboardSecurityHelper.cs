@@ -23,7 +23,10 @@ public sealed class ClipboardSecurityHelper
         Application.Current.Dispatcher.Invoke(() =>
         {
             _copiedContent = redacted;
-            Clipboard.SetText(redacted);
+            var dataObj = new DataObject();
+            dataObj.SetData(DataFormats.UnicodeText, redacted);
+            dataObj.SetData("ExcludeClipboardContentFromMonitorProcessing", true);
+            Clipboard.SetDataObject(dataObj, false);
             StartClearTimer();
         });
     }
@@ -62,4 +65,3 @@ public sealed class ClipboardSecurityHelper
         _clearTimer.Start();
     }
 }
-
