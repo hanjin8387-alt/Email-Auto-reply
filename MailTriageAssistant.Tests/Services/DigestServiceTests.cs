@@ -125,7 +125,7 @@ public sealed class DigestServiceTests
             Item(50, sender: "A", senderEmail: "user@test.com", subject: "S"),
         });
 
-        digest.Should().Contain("[EMAIL]");
+        digest.Should().Contain("\\[EMAIL\\]");
     }
 
     [Fact]
@@ -139,6 +139,19 @@ public sealed class DigestServiceTests
         });
 
         digest.Should().Contain("A\\|B");
+    }
+
+    [Fact]
+    public void GenerateDigest_MarkdownSpecialChars_Escaped()
+    {
+        var sut = CreateSut();
+
+        var digest = sut.GenerateDigest(new List<AnalyzedItem>
+        {
+            Item(50, subject: "[x](y)!<z>"),
+        });
+
+        digest.Should().Contain("\\[x\\]\\(y\\)\\!\\<z\\>");
     }
 
     [Fact]
@@ -185,4 +198,3 @@ public sealed class DigestServiceTests
         digest.Should().NotContain("line1\nline2");
     }
 }
-

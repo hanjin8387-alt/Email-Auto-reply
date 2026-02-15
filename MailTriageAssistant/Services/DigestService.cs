@@ -125,9 +125,15 @@ public sealed class DigestService
 
         return text
             .Replace("|", "\\|", StringComparison.Ordinal)
+            .Replace("[", "\\[", StringComparison.Ordinal)
+            .Replace("]", "\\]", StringComparison.Ordinal)
+            .Replace("(", "\\(", StringComparison.Ordinal)
+            .Replace(")", "\\)", StringComparison.Ordinal)
+            .Replace("!", "\\!", StringComparison.Ordinal)
+            .Replace("<", "\\<", StringComparison.Ordinal)
+            .Replace(">", "\\>", StringComparison.Ordinal)
             .Replace("\r", " ", StringComparison.Ordinal)
             .Replace("\n", " ", StringComparison.Ordinal)
             .Trim();
     }
 }
-
