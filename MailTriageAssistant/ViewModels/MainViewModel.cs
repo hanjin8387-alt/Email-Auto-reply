@@ -185,6 +185,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
             return;
         }
 
+        var setLoading = !IsLoading;
+        if (setLoading)
+        {
+            IsLoading = true;
+        }
+
         try
         {
             StatusMessage = "본문을 불러오는 중...";
@@ -216,6 +222,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
         {
             StatusMessage = "본문을 불러오는 중 오류가 발생했습니다.";
             _dialogService.ShowError(StatusMessage, "오류");
+        }
+        finally
+        {
+            if (setLoading)
+            {
+                IsLoading = false;
+            }
         }
     }
 
