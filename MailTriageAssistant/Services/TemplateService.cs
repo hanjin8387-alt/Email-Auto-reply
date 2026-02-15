@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using MailTriageAssistant.Models;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MailTriageAssistant.Services;
 
@@ -12,6 +14,18 @@ public sealed class TemplateService : ITemplateService
     private const string MissingValue = "[미입력]";
 
     private static readonly Regex PlaceholderRegex = new(@"\{([A-Za-z0-9_]+)\}", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    private readonly ILogger<TemplateService> _logger;
+
+    public TemplateService()
+        : this(NullLogger<TemplateService>.Instance)
+    {
+    }
+
+    public TemplateService(ILogger<TemplateService> logger)
+    {
+        _logger = logger ?? NullLogger<TemplateService>.Instance;
+    }
 
     private readonly List<ReplyTemplate> _templates = new()
     {
@@ -66,9 +80,16 @@ public sealed class TemplateService : ITemplateService
     };
 
     public List<ReplyTemplate> GetTemplates()
-        => _templates
+    {
+        if (_logger.IsEnabled(LogLevel.Debug))
+        {
+            _logger.LogDebug("Templates listed: {Count}.", _templates.Count);
+        }
+
+        return _templates
             .Select(t => new ReplyTemplate { Id = t.Id, Title = t.Title, BodyContent = t.BodyContent })
             .ToList();
+    }
 
     public string FillTemplate(string templateBody, IReadOnlyDictionary<string, string> values)
     {
@@ -77,7 +98,7 @@ public sealed class TemplateService : ITemplateService
             return string.Empty;
         }
 
-        return PlaceholderRegex.Replace(templateBody, match =>
+        var filled = PlaceholderRegex.Replace(templateBody, match =>
         {
             var key = match.Groups[1].Value;
             if (!values.TryGetValue(key, out var val) || val is null)
@@ -87,6 +108,13 @@ public sealed class TemplateService : ITemplateService
 
             return SanitizeValue(val);
         });
+
+        if (_logger.IsEnabled(LogLevel.Debug))
+        {
+            _logger.LogDebug("Template filled (values={ValueCount}).", values.Count);
+        }
+
+        return filled;
     }
 
     private static string SanitizeValue(string value)

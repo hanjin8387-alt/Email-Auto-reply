@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using MailTriageAssistant.Models;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace MailTriageAssistant.Services;
@@ -10,20 +12,27 @@ public sealed class TriageService : ITriageService
     public readonly record struct TriageResult(EmailCategory Category, int Score, string ActionHint, string[] Tags);
 
     private readonly TriageSettings _settings;
+    private readonly ILogger<TriageService> _logger;
 
     public TriageService()
-        : this(new TriageSettings())
+        : this(new TriageSettings(), NullLogger<TriageService>.Instance)
     {
     }
 
     public TriageService(IOptions<TriageSettings> options)
-        : this(options?.Value ?? new TriageSettings())
+        : this(options?.Value ?? new TriageSettings(), NullLogger<TriageService>.Instance)
     {
     }
 
-    private TriageService(TriageSettings settings)
+    public TriageService(IOptions<TriageSettings> options, ILogger<TriageService> logger)
+        : this(options?.Value ?? new TriageSettings(), logger)
+    {
+    }
+
+    private TriageService(TriageSettings settings, ILogger<TriageService> logger)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        _logger = logger ?? NullLogger<TriageService>.Instance;
     }
 
     public TriageResult AnalyzeHeader(string sender, string subject)
@@ -85,7 +94,14 @@ public sealed class TriageService : ITriageService
         if (isNewsletter) tags.Add("Newsletter");
         if (hasFyi) tags.Add("FYI");
 
-        return new TriageResult(category, score, hint, tags.ToArray());
+        var result = new TriageResult(category, score, hint, tags.ToArray());
+
+        if (_logger.IsEnabled(LogLevel.Debug))
+        {
+            _logger.LogDebug("Triage analyzed (Category={Category}, Score={Score}).", result.Category, result.Score);
+        }
+
+        return result;
     }
 
     private bool IsVipSender(string sender)

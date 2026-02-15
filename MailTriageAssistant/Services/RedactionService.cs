@@ -1,10 +1,24 @@
 using System.Text;
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MailTriageAssistant.Services;
 
 public sealed class RedactionService : IRedactionService
 {
+    private readonly ILogger<RedactionService> _logger;
+
+    public RedactionService()
+        : this(NullLogger<RedactionService>.Instance)
+    {
+    }
+
+    public RedactionService(ILogger<RedactionService> logger)
+    {
+        _logger = logger ?? NullLogger<RedactionService>.Instance;
+    }
+
     private static readonly (Regex Pattern, string Replacement)[] Rules = new[]
     {
         // Order matters: more specific patterns first.
@@ -43,6 +57,12 @@ public sealed class RedactionService : IRedactionService
         foreach (var (pattern, replacement) in Rules)
         {
             result = pattern.Replace(result, replacement);
+        }
+
+        if (_logger.IsEnabled(LogLevel.Debug))
+        {
+            var changed = !string.Equals(result, input, StringComparison.Ordinal);
+            _logger.LogDebug("Redact completed (changed={Changed}, length={Length}).", changed, result.Length);
         }
 
         return result;
