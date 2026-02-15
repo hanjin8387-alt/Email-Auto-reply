@@ -15,6 +15,9 @@ namespace MailTriageAssistant.Services;
 public sealed class OutlookService : IOutlookService, IDisposable
 {
     private static readonly TimeSpan ComTimeout = TimeSpan.FromSeconds(30);
+    private const int MaxFetchCount = 50;
+    private const int MaxBodyLength = 1500;
+    private const int RestrictDays = 7;
 
     private readonly Thread _comThread;
     private readonly Dispatcher _comDispatcher;
@@ -250,12 +253,12 @@ public sealed class OutlookService : IOutlookService, IDisposable
             inbox = _session!.GetDefaultFolder(Outlook.OlDefaultFolders.olFolderInbox);
             items = inbox.Items;
 
-            filteredItems = TryRestrictRecentItems(items, days: 7, out filteredItemsIsSeparate);
+            filteredItems = TryRestrictRecentItems(items, days: RestrictDays, out filteredItemsIsSeparate);
 
-            var result = new List<RawEmailHeader>(capacity: 50);
+            var result = new List<RawEmailHeader>(capacity: MaxFetchCount);
             raw = filteredItems.GetFirst();
 
-            while (raw is not null && result.Count < 50)
+            while (raw is not null && result.Count < MaxFetchCount)
             {
                 var current = raw;
                 raw = null;
@@ -378,10 +381,10 @@ public sealed class OutlookService : IOutlookService, IDisposable
                 return string.Empty;
             }
 
-            var body = mail.Body ?? string.Empty;
-            if (body.Length > 1500)
+        var body = mail.Body ?? string.Empty;
+            if (body.Length > MaxBodyLength)
             {
-                body = body[..1500];
+                body = body[..MaxBodyLength];
             }
             return body;
         }
