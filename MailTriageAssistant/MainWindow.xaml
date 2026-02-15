@@ -66,7 +66,7 @@
                          VerticalAlignment="Center" />
         </DockPanel>
 
-        <Border Grid.Row="1" Grid.Column="0" BorderBrush="{StaticResource Brush.Border}" BorderThickness="1" CornerRadius="8" Padding="8" Margin="0,0,8,0">
+        <Border Grid.Row="1" Grid.Column="0" BorderBrush="{StaticResource Brush.Border}" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,8,0">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -81,7 +81,10 @@
                              BorderThickness="0"
                              AutomationProperties.Name="메일 목록"
                              ToolTip="우선순위 기준으로 정렬된 메일 목록"
-                             TabIndex="3">
+                             TabIndex="3"
+                             ScrollViewer.CanContentScroll="True"
+                             VirtualizingStackPanel.IsVirtualizing="True"
+                             VirtualizingStackPanel.VirtualizationMode="Recycling">
                         <ListBox.ItemContainerStyle>
                             <Style TargetType="ListBoxItem">
                                 <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -213,11 +216,17 @@
                 <StackPanel Grid.Row="0">
                     <TextBlock Text="{Binding SelectedEmail.Subject, Converter={StaticResource Redaction}}" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
                     <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                        <TextBlock Text="{Binding SelectedEmail.Sender, Converter={StaticResource Redaction}}" Foreground="{StaticResource Brush.TextSecondary}" />
+                        <TextBlock Text="{Binding SelectedEmail.Sender, Converter={StaticResource Redaction}}"
+                                   Foreground="{StaticResource Brush.TextSecondary}"
+                                   TextTrimming="CharacterEllipsis"
+                                   TextWrapping="NoWrap" />
                         <TextBlock Text="  •  " Foreground="{StaticResource Brush.Separator}" />
                         <TextBlock Text="{Binding SelectedEmail.ReceivedTime, StringFormat={}{0:yyyy-MM-dd HH:mm}}" Foreground="{StaticResource Brush.TextSecondary}" />
                         <TextBlock Text="  •  " Foreground="{StaticResource Brush.Separator}" />
-                        <TextBlock Text="{Binding SelectedEmail.ActionHint}" Foreground="{StaticResource Brush.TextSecondary}" />
+                        <TextBlock Text="{Binding SelectedEmail.ActionHint}"
+                                   Foreground="{StaticResource Brush.TextSecondary}"
+                                   TextTrimming="CharacterEllipsis"
+                                   TextWrapping="NoWrap" />
                     </StackPanel>
                 </StackPanel>
 
@@ -232,7 +241,7 @@
                          BorderBrush="{StaticResource Brush.BorderSubtle}"
                          BorderThickness="1"
                          Background="{StaticResource Brush.SurfaceBackground}"
-                         Padding="10" />
+                         Padding="12" />
 
                 <Grid Grid.Row="3" Margin="0,12,0,0">
                     <Grid.ColumnDefinitions>
@@ -313,7 +322,7 @@
             </Grid>
         </Border>
 
-        <Border Grid.Row="2" Grid.ColumnSpan="2" Margin="0,8,0,0" Padding="10,6" Background="{StaticResource Brush.StatusBackground}" CornerRadius="8">
+        <Border Grid.Row="2" Grid.ColumnSpan="2" Margin="0,8,0,0" Padding="12" Background="{StaticResource Brush.StatusBackground}" CornerRadius="8">
             <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource Brush.TextPrimary}" />
         </Border>
     </Grid>
