@@ -116,3 +116,13 @@ Plan: `.ai/plans/2026-02-13_perf_master_plan.md`
 - **Perf Before**: n/a
 - **Perf After**: expected fewer COM InvokeAsync calls for prefetch/digest
 - **Notes**: Added `GetBodies(entryIds)` that runs a single COM `InvokeAsync` and loops on the STA thread.
+
+## [1-2] perf: Batch prefetch bodies via GetBodies
+- **Status**: OK Committed
+- **Files**: `MailTriageAssistant/ViewModels/MainViewModel.cs`, `MailTriageAssistant.Tests/ViewModels/MainViewModelTests.cs`
+- **Lines**: +36 / -4
+- **Build**: OK (0 warnings)
+- **Test**: OK (107/107 passed)
+- **Perf Before**: n/a
+- **Perf After**: fewer COM calls during prefetch
+- **Notes**: `PrefetchTopBodiesAsync` now uses `GetBodies` (single COM call). Status message is shown only if body fetch exceeds 200ms.

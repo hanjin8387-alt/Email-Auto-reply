@@ -533,16 +533,41 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         try
         {
-            var top = Emails.Take(10).ToList();
-            foreach (var item in top)
+            var targets = Emails
+                .Take(10)
+                .Where(i => !i.IsBodyLoaded && !string.IsNullOrWhiteSpace(i.EntryId))
+                .ToList();
+            if (targets.Count == 0)
+            {
+                return;
+            }
+
+            var entryIds = targets
+                .Select(i => i.EntryId)
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+            var loadCompleteStatus = Emails.Count == 0 ? "표시할 메일이 없습니다." : $"메일 {Emails.Count}개 로드 완료";
+            var prefetchStatus = $"본문 {entryIds.Count}건 미리 불러오는 중...";
+            var statusWasSet = false;
+
+            var bodiesTask = _outlookService.GetBodies(entryIds, ct);
+            var delayTask = Task.Delay(TimeSpan.FromMilliseconds(200), ct);
+            if (ReferenceEquals(await Task.WhenAny(bodiesTask, delayTask).ConfigureAwait(true), delayTask)
+                && string.Equals(StatusMessage, loadCompleteStatus, StringComparison.Ordinal))
+            {
+                StatusMessage = prefetchStatus;
+                statusWasSet = true;
+            }
+
+            var bodies = await bodiesTask.ConfigureAwait(true);
+            foreach (var item in targets)
             {
                 ct.ThrowIfCancellationRequested();
-                if (item.IsBodyLoaded)
+                if (!bodies.TryGetValue(item.EntryId, out var body))
                 {
                     continue;
                 }
 
-                var body = await _outlookService.GetBody(item.EntryId, ct).ConfigureAwait(true);
                 var triage = _triageService.AnalyzeWithBody(item.SenderEmail, item.Subject, body);
 
                 item.Category = triage.Category;
@@ -557,6 +582,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
             }
 
             EmailsView.Refresh();
+            if (statusWasSet && string.Equals(StatusMessage, prefetchStatus, StringComparison.Ordinal))
+            {
+                StatusMessage = loadCompleteStatus;
+            }
         }
         catch
         {

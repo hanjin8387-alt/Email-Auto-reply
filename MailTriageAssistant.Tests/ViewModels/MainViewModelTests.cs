@@ -40,6 +40,9 @@ public sealed class MainViewModelTests
                 .ReturnsAsync(headers);
             outlook.Setup(s => s.GetBody(It.IsAny<string>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync("body");
+            outlook.Setup(s => s.GetBodies(It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((IReadOnlyList<string> ids, CancellationToken _) =>
+                    (IReadOnlyDictionary<string, string>)ids.ToDictionary(id => id, _ => "body"));
 
             var triage = new Mock<ITriageService>(MockBehavior.Strict);
             triage.Setup(s => s.AnalyzeHeader(It.IsAny<string>(), It.IsAny<string>()))
