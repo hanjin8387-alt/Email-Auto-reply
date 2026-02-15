@@ -33,19 +33,28 @@
                     Command="{Binding LoadEmailsCommand}"
                     MinWidth="140"
                     Padding="10,6"
-                    Margin="0,0,8,0" />
+                    Margin="0,0,8,0"
+                    AutomationProperties.Name="메일 분류 실행"
+                    ToolTip="Outlook Inbox에서 최근 메일을 불러와 우선순위를 계산합니다."
+                    TabIndex="0" />
             <Button Content="Copy Digest &amp; Open Teams"
                     Command="{Binding GenerateDigestCommand}"
                     MinWidth="200"
                     Padding="10,6"
-                    Margin="0,0,16,0" />
+                    Margin="0,0,16,0"
+                    AutomationProperties.Name="Digest 복사 및 Teams 열기"
+                    ToolTip="우선순위 상위 메일 Digest를 복사하고 Teams를 엽니다."
+                    TabIndex="1" />
 
             <TextBlock Text="Teams 사용자 이메일:"
                        VerticalAlignment="Center"
                        Margin="0,0,6,0" />
             <TextBox Text="{Binding TeamsUserEmail, UpdateSourceTrigger=PropertyChanged}"
                      Width="260"
-                     VerticalAlignment="Center" />
+                     VerticalAlignment="Center"
+                     AutomationProperties.Name="Teams 사용자 이메일 입력"
+                     ToolTip="Teams에서 채팅을 열 사용자 이메일 주소 (옵션)"
+                     TabIndex="2" />
 
             <ProgressBar IsIndeterminate="True"
                          Width="120"
@@ -67,7 +76,10 @@
                 <ListBox Grid.Row="1"
                          ItemsSource="{Binding Emails}"
                          SelectedItem="{Binding SelectedEmail, Mode=TwoWay}"
-                         BorderThickness="0">
+                         BorderThickness="0"
+                         AutomationProperties.Name="메일 목록"
+                         ToolTip="우선순위 기준으로 정렬된 메일 목록"
+                         TabIndex="3">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <Border Padding="8"
@@ -152,7 +164,10 @@
                         <ComboBox ItemsSource="{Binding Templates}"
                                   SelectedItem="{Binding SelectedTemplate, Mode=TwoWay}"
                                   DisplayMemberPath="Title"
-                                  MinWidth="280" />
+                                  MinWidth="280"
+                                  AutomationProperties.Name="답장 템플릿 선택"
+                                  ToolTip="선택한 템플릿으로 Outlook 답장 초안을 생성합니다."
+                                  TabIndex="4" />
                     </StackPanel>
 
                     <Button Grid.Column="1"
@@ -160,19 +175,28 @@
                             Command="{Binding CopySelectedCommand}"
                             MinWidth="140"
                             Padding="10,6"
-                            Margin="12,18,0,0" />
+                            Margin="12,18,0,0"
+                            AutomationProperties.Name="요약 복사"
+                            ToolTip="선택한 메일의 마스킹된 요약을 클립보드에 복사합니다. (30초 후 자동 삭제)"
+                            TabIndex="5" />
                     <Button Grid.Column="2"
                             Content="Reply With Template"
                             Command="{Binding ReplyCommand}"
                             MinWidth="160"
                             Padding="10,6"
-                            Margin="8,18,0,0" />
+                            Margin="8,18,0,0"
+                            AutomationProperties.Name="템플릿 답장"
+                            ToolTip="선택한 템플릿으로 Outlook 답장 초안을 생성합니다."
+                            TabIndex="6" />
                     <Button Grid.Column="3"
                             Content="Copy Digest &amp; Teams"
                             Command="{Binding GenerateDigestCommand}"
                             MinWidth="170"
                             Padding="10,6"
-                            Margin="8,18,0,0" />
+                            Margin="8,18,0,0"
+                            AutomationProperties.Name="Digest 복사 및 Teams 열기"
+                            ToolTip="우선순위 상위 메일 Digest를 복사하고 Teams를 엽니다."
+                            TabIndex="7" />
                 </Grid>
             </Grid>
         </Border>
