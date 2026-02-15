@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -229,56 +230,61 @@ public sealed class OutlookService : IOutlookService, IDisposable
 
         Outlook.MAPIFolder? inbox = null;
         Outlook.Items? items = null;
+        Outlook.Items? filteredItems = null;
+        var filteredItemsIsSeparate = false;
         object? raw = null;
 
         try
         {
             inbox = _session!.GetDefaultFolder(Outlook.OlDefaultFolders.olFolderInbox);
             items = inbox.Items;
-            items.Sort("[ReceivedTime]", true);
+
+            filteredItems = TryRestrictRecentItems(items, days: 7, out filteredItemsIsSeparate);
 
             var result = new List<RawEmailHeader>(capacity: 50);
-            var count = items.Count;
+            raw = filteredItems.GetFirst();
 
-            var fetched = 0;
-            for (var i = 1; i <= count && fetched < 50; i++)
+            while (raw is not null && result.Count < 50)
             {
-                raw = items[i];
-                if (raw is not Outlook.MailItem mail)
-                {
-                    SafeReleaseComObject(raw);
-                    raw = null;
-                    continue;
-                }
+                var current = raw;
+                raw = null;
 
-                Outlook.Attachments? attachments = null;
-                bool hasAttachments;
                 try
                 {
-                    attachments = mail.Attachments;
-                    hasAttachments = attachments is not null && attachments.Count > 0;
+                    if (current is Outlook.MailItem mail)
+                    {
+                        Outlook.Attachments? attachments = null;
+                        bool hasAttachments;
+                        try
+                        {
+                            attachments = mail.Attachments;
+                            hasAttachments = attachments is not null && attachments.Count > 0;
+                        }
+                        finally
+                        {
+                            SafeReleaseComObject(attachments);
+                        }
+
+                        result.Add(new RawEmailHeader
+                        {
+                            EntryId = mail.EntryID ?? string.Empty,
+                            SenderName = mail.SenderName ?? string.Empty,
+                            SenderEmail = mail.SenderEmailAddress ?? string.Empty,
+                            Subject = mail.Subject ?? string.Empty,
+                            ReceivedTime = mail.ReceivedTime,
+                            HasAttachments = hasAttachments,
+                        });
+                    }
                 }
                 finally
                 {
-                    SafeReleaseComObject(attachments);
+                    SafeReleaseComObject(current);
                 }
 
-                result.Add(new RawEmailHeader
-                {
-                    EntryId = mail.EntryID ?? string.Empty,
-                    SenderName = mail.SenderName ?? string.Empty,
-                    SenderEmail = mail.SenderEmailAddress ?? string.Empty,
-                    Subject = mail.Subject ?? string.Empty,
-                    ReceivedTime = mail.ReceivedTime,
-                    HasAttachments = hasAttachments,
-                });
-
-                fetched++;
-
-                SafeReleaseComObject(raw);
-                raw = null;
+                raw = filteredItems.GetNext();
             }
 
+            result.Sort((a, b) => b.ReceivedTime.CompareTo(a.ReceivedTime));
             return result;
         }
         catch (COMException)
@@ -303,9 +309,40 @@ public sealed class OutlookService : IOutlookService, IDisposable
         finally
         {
             SafeReleaseComObject(raw);
+            if (filteredItemsIsSeparate)
+            {
+                SafeReleaseComObject(filteredItems);
+            }
             SafeReleaseComObject(items);
             SafeReleaseComObject(inbox);
         }
+    }
+
+    private static Outlook.Items TryRestrictRecentItems(Outlook.Items items, int days, out bool isSeparateComObject)
+    {
+        isSeparateComObject = false;
+
+        var since = DateTime.Now.AddDays(-Math.Abs(days));
+        var filter = BuildReceivedTimeFilter(since);
+
+        try
+        {
+            var restricted = items.Restrict(filter);
+            isSeparateComObject = true;
+            return restricted;
+        }
+        catch (COMException)
+        {
+            // If Restrict fails (e.g. locale/date parsing), fall back to the full collection.
+            return items;
+        }
+    }
+
+    private static string BuildReceivedTimeFilter(DateTime since)
+    {
+        // Outlook Restrict() date parsing is locale-sensitive; "en-US" is broadly supported.
+        var formatted = since.ToString("g", CultureInfo.GetCultureInfo("en-US"));
+        return $"[ReceivedTime] >= '{formatted}'";
     }
 
     private string GetBodyInternal(string entryId)
