@@ -127,6 +127,25 @@ public partial class App : Application
     {
         e.Handled = true;
 
+        try
+        {
+            // Never log exception messages: they could include email-derived content. Type/HResult only.
+            var app = sender as App;
+            var logger = app?._serviceProvider?.GetService<ILogger<App>>();
+            var ex = e.Exception;
+            if (logger is not null && ex is not null)
+            {
+                logger.LogError(
+                    "Unhandled exception: {ExceptionType} (HResult={HResult}).",
+                    ex.GetType().Name,
+                    ex.HResult);
+            }
+        }
+        catch
+        {
+            // Ignore logging failures inside exception handler.
+        }
+
         // Use IDialogService to avoid direct MessageBox calls (testability + single UI abstraction).
         var dialog = (sender as App)?._serviceProvider?.GetService<IDialogService>()
             ?? new WpfDialogService();
