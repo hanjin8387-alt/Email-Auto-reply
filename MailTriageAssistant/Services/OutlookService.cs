@@ -23,7 +23,7 @@ public sealed class OutlookService : IOutlookService, IDisposable
 
     private readonly ILogger<OutlookService> _logger;
     private readonly Thread _comThread;
-    private readonly Dispatcher _comDispatcher;
+    private readonly Task<Dispatcher> _comDispatcherTask;
     private readonly SemaphoreSlim _comLock = new(initialCount: 1, maxCount: 1);
     private bool _disposed;
     private bool _newOutlookChecked;
@@ -61,7 +61,7 @@ public sealed class OutlookService : IOutlookService, IDisposable
         _comThread.SetApartmentState(ApartmentState.STA);
         _comThread.Start();
 
-        _comDispatcher = tcs.Task.GetAwaiter().GetResult();
+        _comDispatcherTask = tcs.Task;
     }
 
     public Task<List<RawEmailHeader>> FetchInboxHeaders(CancellationToken ct = default)
@@ -99,21 +99,26 @@ public sealed class OutlookService : IOutlookService, IDisposable
 
         try
         {
-            if (!_comDispatcher.HasShutdownStarted && !_comDispatcher.HasShutdownFinished)
+            if (_comDispatcherTask.IsCompletedSuccessfully)
             {
-                _comDispatcher.Invoke(() =>
-                {
-                    try
-                    {
-                        ResetConnection();
-                    }
-                    catch
-                    {
-                        // Ignore disposal errors.
-                    }
-                });
+                var dispatcher = _comDispatcherTask.Result;
 
-                _comDispatcher.InvokeShutdown();
+                if (!dispatcher.HasShutdownStarted && !dispatcher.HasShutdownFinished)
+                {
+                    dispatcher.Invoke(() =>
+                    {
+                        try
+                        {
+                            ResetConnection();
+                        }
+                        catch
+                        {
+                            // Ignore disposal errors.
+                        }
+                    });
+
+                    dispatcher.InvokeShutdown();
+                }
             }
         }
         catch
@@ -136,7 +141,8 @@ public sealed class OutlookService : IOutlookService, IDisposable
         await _comLock.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            var op = _comDispatcher.InvokeAsync(func);
+            var dispatcher = await _comDispatcherTask.ConfigureAwait(false);
+            var op = dispatcher.InvokeAsync(func);
             var task = op.Task;
             var timeoutOrCancel = Task.Delay(ComTimeout, ct);
             var completed = await Task.WhenAny(task, timeoutOrCancel).ConfigureAwait(false);
@@ -168,7 +174,8 @@ public sealed class OutlookService : IOutlookService, IDisposable
         await _comLock.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            var op = _comDispatcher.InvokeAsync(action);
+            var dispatcher = await _comDispatcherTask.ConfigureAwait(false);
+            var op = dispatcher.InvokeAsync(action);
             var task = op.Task;
             var timeoutOrCancel = Task.Delay(ComTimeout, ct);
             var completed = await Task.WhenAny(task, timeoutOrCancel).ConfigureAwait(false);
