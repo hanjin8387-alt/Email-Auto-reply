@@ -156,3 +156,13 @@ Plan: `.ai/plans/2026-02-13_perf_master_plan.md`
 - **Perf Before**: n/a
 - **Perf After**: prepares removal of per-row redaction converter work
 - **Notes**: Added `RedactedSender`/`RedactedSubject` and populate them during header load (and for existing items when missing).
+
+## [2-2] perf: Bind list sender/subject to pre-redacted properties
+- **Status**: OK Committed
+- **Files**: `MailTriageAssistant/MainWindow.xaml`
+- **Lines**: +2 / -2
+- **Build**: OK (0 warnings)
+- **Test**: OK (107/107 passed)
+- **Perf Before**: n/a
+- **Perf After**: removed per-row redaction converter work in the list
+- **Notes**: List binding now uses `RedactedSender` and `RedactedSubject`.
