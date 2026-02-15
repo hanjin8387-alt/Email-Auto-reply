@@ -9,6 +9,9 @@ namespace MailTriageAssistant.Services;
 
 public sealed class TemplateService
 {
+    private const int MaxValueLength = 200;
+    private const string MissingValue = "[미입력]";
+
     private static readonly Regex PlaceholderRegex = new(@"\{([A-Za-z0-9_]+)\}", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private readonly List<ReplyTemplate> _templates = new()
@@ -78,13 +81,34 @@ public sealed class TemplateService
         return PlaceholderRegex.Replace(templateBody, match =>
         {
             var key = match.Groups[1].Value;
-            if (values.TryGetValue(key, out var val) && !string.IsNullOrWhiteSpace(val))
+            if (!values.TryGetValue(key, out var val) || val is null)
             {
-                return val;
+                return MissingValue;
             }
 
-            return "___";
+            return SanitizeValue(val);
         });
+    }
+
+    private static string SanitizeValue(string value)
+    {
+        // Prevent placeholder injection and keep the draft readable.
+        var sanitized = (value ?? string.Empty)
+            .Replace("{", string.Empty, StringComparison.Ordinal)
+            .Replace("}", string.Empty, StringComparison.Ordinal)
+            .Trim();
+
+        if (sanitized.Length > MaxValueLength)
+        {
+            sanitized = sanitized[..MaxValueLength];
+        }
+
+        if (string.IsNullOrWhiteSpace(sanitized) || string.Equals(sanitized, "___", StringComparison.Ordinal))
+        {
+            return MissingValue;
+        }
+
+        return sanitized;
     }
 
     public async Task SendDraft(
@@ -103,4 +127,3 @@ public sealed class TemplateService
         await outlookService.CreateDraft(recipientEmail, subject, body).ConfigureAwait(false);
     }
 }
-

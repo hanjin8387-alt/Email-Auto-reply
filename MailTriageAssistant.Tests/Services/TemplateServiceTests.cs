@@ -39,13 +39,13 @@ public sealed class TemplateServiceTests
     }
 
     [Fact]
-    public void FillTemplate_MissingValue_ReplacedWithUnderscores()
+    public void FillTemplate_MissingValue_ReplacedWithMissingMarker()
     {
         var body = "{MissingInfo} 확인";
 
         var result = _sut.FillTemplate(body, new Dictionary<string, string>());
 
-        result.Should().Be("___ 확인");
+        result.Should().Be("[미입력] 확인");
     }
 
     [Fact]
@@ -75,11 +75,36 @@ public sealed class TemplateServiceTests
     }
 
     [Fact]
-    public void FillTemplate_WhitespaceValue_ReplacedWithUnderscores()
+    public void FillTemplate_WhitespaceValue_ReplacedWithMissingMarker()
     {
         var result = _sut.FillTemplate("{Key}", new Dictionary<string, string> { ["Key"] = "  " });
 
-        result.Should().Be("___");
+        result.Should().Be("[미입력]");
+    }
+
+    [Fact]
+    public void FillTemplate_ValueWithBraces_BracesRemoved()
+    {
+        var result = _sut.FillTemplate("{Key}", new Dictionary<string, string> { ["Key"] = "{Injected}" });
+
+        result.Should().Be("Injected");
+    }
+
+    [Fact]
+    public void FillTemplate_ValueLongerThanLimit_IsTruncated()
+    {
+        var longValue = new string('a', 250);
+        var result = _sut.FillTemplate("{Key}", new Dictionary<string, string> { ["Key"] = longValue });
+
+        result.Should().HaveLength(200);
+    }
+
+    [Fact]
+    public void FillTemplate_UnderscoreValue_ReplacedWithMissingMarker()
+    {
+        var result = _sut.FillTemplate("{Key}", new Dictionary<string, string> { ["Key"] = "___" });
+
+        result.Should().Be("[미입력]");
     }
 
     [Fact]
@@ -149,4 +174,3 @@ public sealed class TemplateServiceTests
         await act.Should().ThrowAsync<ArgumentNullException>();
     }
 }
-
