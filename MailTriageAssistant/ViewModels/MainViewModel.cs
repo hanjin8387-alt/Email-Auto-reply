@@ -228,20 +228,56 @@ public sealed class MainViewModel : INotifyPropertyChanged
         IsLoading = true;
         StatusMessage = "Outlook에서 메일 헤더를 불러오는 중...";
 
-        Emails.Clear();
-        SelectedEmail = null;
+        var selectedEntryId = SelectedEmail?.EntryId;
 
         try
         {
             var headers = await _outlookService.FetchInboxHeaders(ct).ConfigureAwait(true);
             _sessionStats.RecordHeadersLoaded(headers.Count);
 
+            var existingById = new Dictionary<string, AnalyzedItem>(StringComparer.Ordinal);
+            foreach (var existing in Emails)
+            {
+                if (!string.IsNullOrWhiteSpace(existing.EntryId) && !existingById.ContainsKey(existing.EntryId))
+                {
+                    existingById.Add(existing.EntryId, existing);
+                }
+            }
+
             var analyzed = new List<AnalyzedItem>(headers.Count);
+            var seen = new HashSet<string>(StringComparer.Ordinal);
             foreach (var h in headers)
             {
                 ct.ThrowIfCancellationRequested();
-                var triage = _triageService.AnalyzeHeader(h.SenderEmail, h.Subject);
-                _sessionStats.RecordTriage(triage.Category);
+                if (string.IsNullOrWhiteSpace(h.EntryId) || !seen.Add(h.EntryId))
+                {
+                    continue;
+                }
+
+                if (existingById.TryGetValue(h.EntryId, out var existing))
+                {
+                    if (existing.IsBodyLoaded)
+                    {
+                        _sessionStats.RecordTriage(existing.Category);
+                    }
+                    else
+                    {
+                        var triage = _triageService.AnalyzeHeader(h.SenderEmail, h.Subject);
+                        _sessionStats.RecordTriage(triage.Category);
+
+                        existing.Category = triage.Category;
+                        existing.Score = triage.Score;
+                        existing.ActionHint = triage.ActionHint;
+                        existing.Tags = triage.Tags;
+                        existing.RedactedSummary = "선택하면 본문을 로드하고 마스킹된 요약을 표시합니다.";
+                    }
+
+                    analyzed.Add(existing);
+                    continue;
+                }
+
+                var newTriage = _triageService.AnalyzeHeader(h.SenderEmail, h.Subject);
+                _sessionStats.RecordTriage(newTriage.Category);
 
                 analyzed.Add(new AnalyzedItem
                 {
@@ -251,17 +287,82 @@ public sealed class MainViewModel : INotifyPropertyChanged
                     Subject = h.Subject,
                     ReceivedTime = h.ReceivedTime,
                     HasAttachments = h.HasAttachments,
-                    Category = triage.Category,
-                    Score = triage.Score,
-                    ActionHint = triage.ActionHint,
-                    Tags = triage.Tags,
+                    Category = newTriage.Category,
+                    Score = newTriage.Score,
+                    ActionHint = newTriage.ActionHint,
+                    Tags = newTriage.Tags,
                     RedactedSummary = "선택하면 본문을 로드하고 마스킹된 요약을 표시합니다.",
                     IsBodyLoaded = false,
                 });
             }
 
-            Emails.AddRange(analyzed.OrderByDescending(i => i.Score).ThenByDescending(i => i.ReceivedTime));
-            EmailsView.Refresh();
+            var sorted = analyzed
+                .OrderByDescending(i => i.Score)
+                .ThenByDescending(i => i.ReceivedTime)
+                .ToList();
+
+            using (EmailsView.DeferRefresh())
+            {
+                if (Emails.Count == 0)
+                {
+                    Emails.AddRange(sorted);
+                }
+                else
+                {
+                    for (var i = 0; i < sorted.Count; i++)
+                    {
+                        var desiredItem = sorted[i];
+
+                        if (i >= Emails.Count)
+                        {
+                            Emails.Add(desiredItem);
+                            continue;
+                        }
+
+                        if (string.Equals(Emails[i].EntryId, desiredItem.EntryId, StringComparison.Ordinal))
+                        {
+                            continue;
+                        }
+
+                        var existingIndex = -1;
+                        for (var j = i + 1; j < Emails.Count; j++)
+                        {
+                            if (string.Equals(Emails[j].EntryId, desiredItem.EntryId, StringComparison.Ordinal))
+                            {
+                                existingIndex = j;
+                                break;
+                            }
+                        }
+
+                        if (existingIndex >= 0)
+                        {
+                            Emails.Move(existingIndex, i);
+                        }
+                        else
+                        {
+                            Emails.Insert(i, desiredItem);
+                        }
+                    }
+
+                    while (Emails.Count > sorted.Count)
+                    {
+                        Emails.RemoveAt(Emails.Count - 1);
+                    }
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(selectedEntryId))
+            {
+                var nextSelected = Emails.FirstOrDefault(i => string.Equals(i.EntryId, selectedEntryId, StringComparison.Ordinal));
+                if (!ReferenceEquals(nextSelected, SelectedEmail))
+                {
+                    SelectedEmail = nextSelected;
+                }
+            }
+            else if (Emails.Count == 0)
+            {
+                SelectedEmail = null;
+            }
 
             StatusMessage = Emails.Count == 0 ? "표시할 메일이 없습니다." : $"메일 {Emails.Count}개 로드 완료";
             _logger.LogInformation("LoadEmails completed: {Count} items.", Emails.Count);

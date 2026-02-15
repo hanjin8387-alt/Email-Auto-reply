@@ -136,3 +136,13 @@ Plan: `.ai/plans/2026-02-13_perf_master_plan.md`
 - **Perf Before**: n/a
 - **Perf After**: fewer COM calls during digest; less redundant body loading
 - **Notes**: Track and await the latest prefetch task, then use `GetBodies` to load only missing bodies before digest generation.
+
+## [1-4] perf: Differential update in LoadEmailsAsync
+- **Status**: OK Committed
+- **Files**: `MailTriageAssistant/ViewModels/MainViewModel.cs`
+- **Lines**: +111 / -10
+- **Build**: OK (0 warnings)
+- **Test**: OK (107/107 passed)
+- **Perf Before**: n/a
+- **Perf After**: reduced UI churn on refresh (avoid full Clear+Reset when possible)
+- **Notes**: Reuse existing items by EntryId and update only what's needed; apply minimal Move/Insert/Remove updates under `DeferRefresh()` (initial load uses `AddRange` fast-path).
