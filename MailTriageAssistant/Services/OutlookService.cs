@@ -20,6 +20,7 @@ public sealed class OutlookService : IOutlookService, IDisposable
     private readonly Dispatcher _comDispatcher;
     private readonly SemaphoreSlim _comLock = new(initialCount: 1, maxCount: 1);
     private bool _disposed;
+    private bool _newOutlookChecked;
 
     private Outlook.Application? _app;
     private Outlook.NameSpace? _session;
@@ -162,10 +163,14 @@ public sealed class OutlookService : IOutlookService, IDisposable
 
     private void EnsureClassicOutlookOrThrow()
     {
-        if (Process.GetProcessesByName("olk").Any())
+        if (!_newOutlookChecked)
         {
-            throw new NotSupportedException(
-                "Classic Outlook이 필요합니다. New Outlook(olk.exe)은 COM Interop을 지원하지 않습니다.");
+            _newOutlookChecked = true;
+            if (Process.GetProcessesByName("olk").Any())
+            {
+                throw new NotSupportedException(
+                    "Classic Outlook이 필요합니다. New Outlook(olk.exe)은 COM Interop을 지원하지 않습니다.");
+            }
         }
 
         if (_app is not null && _session is not null)
@@ -443,6 +448,7 @@ public sealed class OutlookService : IOutlookService, IDisposable
         SafeReleaseComObject(_app);
         _session = null;
         _app = null;
+        _newOutlookChecked = false;
     }
 
     private static void SafeReleaseComObject(object? obj)
