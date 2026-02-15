@@ -11,8 +11,14 @@ public sealed class RedactionServiceTests
     [Theory]
     [InlineData("010-1234-5678", "[PHONE]")]
     [InlineData("900101-1234567", "[SSN]")]
+    [InlineData("9001011234567", "[SSN]")]
     [InlineData("1234-5678-9012-3456", "[CARD]")]
+    [InlineData("1234 5678 9012 3456", "[CARD]")]
     [InlineData("user@example.com", "[EMAIL]")]
+    [InlineData("192.168.0.10", "[IP]")]
+    [InlineData("access_token=abcd1234", "access_token=[URL_TOKEN]")]
+    [InlineData("계좌: 123-45-678901", "계좌: [ACCOUNT]")]
+    [InlineData("여권번호: M12345678", "여권번호: [PASSPORT]")]
     public void Redact_SinglePattern_IsReplaced(string input, string expected)
     {
         _sut.Redact(input).Should().Be(expected);
@@ -75,4 +81,3 @@ public sealed class RedactionServiceTests
         _sut.Redact("02-1234-5678").Should().Be("02-1234-5678");
     }
 }
-
