@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using MailTriageAssistant.Models;
+using Microsoft.Extensions.Options;
 
 namespace MailTriageAssistant.Services;
 
@@ -8,56 +9,22 @@ public sealed class TriageService
 {
     public readonly record struct TriageResult(EmailCategory Category, int Score, string ActionHint, string[] Tags);
 
-    private static readonly HashSet<string> VipSenders = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "ceo@company.com",
-        "cto@company.com",
-        "manager@company.com",
-    };
+    private readonly TriageSettings _settings;
 
-    private static readonly string[] ActionKeywords = new[]
+    public TriageService()
+        : this(new TriageSettings())
     {
-        "요청",
-        "확인",
-        "긴급",
-        "ASAP",
-        "기한",
-        "Due",
-    };
+    }
 
-    private static readonly string[] ApprovalKeywords = new[]
+    public TriageService(IOptions<TriageSettings> options)
+        : this(options?.Value ?? new TriageSettings())
     {
-        "결재",
-        "상신",
-        "승인요청",
-    };
+    }
 
-    private static readonly string[] MeetingKeywords = new[]
+    private TriageService(TriageSettings settings)
     {
-        "초대",
-        "Invite",
-        "회의",
-        "미팅",
-        "Zoom",
-        "Teams",
-    };
-
-    private static readonly string[] NewsletterKeywords = new[]
-    {
-        "구독",
-        "광고",
-        "No-Reply",
-        "News",
-        "Unsubscribe",
-    };
-
-    private static readonly string[] FyiKeywords = new[]
-    {
-        "참고",
-        "공유",
-        "FYI",
-        "공지",
-    };
+        _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+    }
 
     public TriageResult AnalyzeHeader(string sender, string subject)
         => AnalyzeInternal(sender, subject, body: null);
@@ -65,27 +32,27 @@ public sealed class TriageService
     public TriageResult AnalyzeWithBody(string sender, string subject, string body)
         => AnalyzeInternal(sender, subject, body);
 
-    private static TriageResult AnalyzeInternal(string sender, string subject, string? body)
+    private TriageResult AnalyzeInternal(string sender, string subject, string? body)
     {
         var combined = (subject ?? string.Empty) + " " + (body ?? string.Empty);
 
         var isVip = IsVipSender(sender);
-        var hasAction = ContainsAny(combined, ActionKeywords);
-        var hasApproval = ContainsAny(combined, ApprovalKeywords);
-        var hasMeeting = ContainsAny(combined, MeetingKeywords);
-        var isNewsletter = ContainsAny(combined, NewsletterKeywords);
-        var hasFyi = ContainsAny(combined, FyiKeywords);
+        var hasAction = ContainsAny(combined, _settings.ActionKeywords);
+        var hasApproval = ContainsAny(combined, _settings.ApprovalKeywords);
+        var hasMeeting = ContainsAny(combined, _settings.MeetingKeywords);
+        var isNewsletter = ContainsAny(combined, _settings.NewsletterKeywords);
+        var hasFyi = ContainsAny(combined, _settings.FyiKeywords);
 
-        var score = 50;
-        if (isVip) score += 30;
-        if (hasAction) score += 20;
-        if (hasApproval) score += 15;
-        if (hasMeeting) score += 10;
-        if (isNewsletter) score -= 50;
+        var score = _settings.BaseScore;
+        if (isVip) score += _settings.VipBonus;
+        if (hasAction) score += _settings.ActionBonus;
+        if (hasApproval) score += _settings.ApprovalBonus;
+        if (hasMeeting) score += _settings.MeetingBonus;
+        if (isNewsletter) score -= _settings.NewsletterPenalty;
 
         if (!isVip && !isNewsletter && !LooksLikeKnownSender(sender))
         {
-            score -= 10;
+            score -= _settings.UnknownSenderPenalty;
         }
 
         score = Math.Clamp(score, 0, 100);
@@ -121,14 +88,14 @@ public sealed class TriageService
         return new TriageResult(category, score, hint, tags.ToArray());
     }
 
-    private static bool IsVipSender(string sender)
+    private bool IsVipSender(string sender)
     {
         if (string.IsNullOrWhiteSpace(sender))
         {
             return false;
         }
 
-        foreach (var vip in VipSenders)
+        foreach (var vip in _settings.VipSenders ?? Array.Empty<string>())
         {
             if (sender.Contains(vip, StringComparison.OrdinalIgnoreCase))
             {
@@ -149,7 +116,7 @@ public sealed class TriageService
             return false;
         }
 
-        foreach (var keyword in keywords)
+        foreach (var keyword in keywords ?? Array.Empty<string>())
         {
             if (text.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0)
             {
@@ -160,4 +127,3 @@ public sealed class TriageService
         return false;
     }
 }
-

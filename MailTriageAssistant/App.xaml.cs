@@ -1,6 +1,8 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System.Windows;
 using System.Windows.Threading;
+using MailTriageAssistant.Models;
 using MailTriageAssistant.Services;
 using MailTriageAssistant.ViewModels;
 
@@ -36,6 +38,14 @@ public partial class App : Application
 
     private static void ConfigureServices(IServiceCollection services)
     {
+        var configuration = new ConfigurationBuilder()
+            .SetBasePath(AppContext.BaseDirectory)
+            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
+            .Build();
+
+        services.AddSingleton<IConfiguration>(configuration);
+        services.Configure<TriageSettings>(configuration.GetSection(nameof(TriageSettings)));
+
         services.AddSingleton<IDialogService, WpfDialogService>();
         services.AddSingleton<RedactionService>();
         services.AddSingleton<ClipboardSecurityHelper>();
