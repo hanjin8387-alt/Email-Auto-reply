@@ -11,9 +11,11 @@ using Outlook = Microsoft.Office.Interop.Outlook;
 
 namespace MailTriageAssistant.Services;
 
-public sealed class OutlookService : IOutlookService
+public sealed class OutlookService : IOutlookService, IDisposable
 {
+    private readonly Thread _comThread;
     private readonly Dispatcher _comDispatcher;
+    private bool _disposed;
 
     private Outlook.Application? _app;
     private Outlook.NameSpace? _session;
@@ -22,7 +24,7 @@ public sealed class OutlookService : IOutlookService
     {
         var tcs = new TaskCompletionSource<Dispatcher>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        var thread = new Thread(() =>
+        _comThread = new Thread(() =>
         {
             try
             {
@@ -39,26 +41,86 @@ public sealed class OutlookService : IOutlookService
             IsBackground = true,
             Name = "Outlook COM (STA)",
         };
-        thread.SetApartmentState(ApartmentState.STA);
-        thread.Start();
+        _comThread.SetApartmentState(ApartmentState.STA);
+        _comThread.Start();
 
         _comDispatcher = tcs.Task.GetAwaiter().GetResult();
     }
 
     public Task<List<RawEmailHeader>> FetchInboxHeaders()
-        => InvokeAsync(FetchInboxHeadersInternal);
+    {
+        ThrowIfDisposed();
+        return InvokeAsync(FetchInboxHeadersInternal);
+    }
 
     public Task<string> GetBody(string entryId)
-        => InvokeAsync(() => GetBodyInternal(entryId));
+    {
+        ThrowIfDisposed();
+        return InvokeAsync(() => GetBodyInternal(entryId));
+    }
 
     public Task CreateDraft(string to, string subject, string body)
-        => InvokeAsync(() => CreateDraftInternal(to, subject, body));
+    {
+        ThrowIfDisposed();
+        return InvokeAsync(() => CreateDraftInternal(to, subject, body));
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+
+        try
+        {
+            if (!_comDispatcher.HasShutdownStarted && !_comDispatcher.HasShutdownFinished)
+            {
+                _comDispatcher.Invoke(() =>
+                {
+                    try
+                    {
+                        ResetConnection();
+                    }
+                    catch
+                    {
+                        // Ignore disposal errors.
+                    }
+                });
+
+                _comDispatcher.InvokeShutdown();
+            }
+        }
+        catch
+        {
+            // Ignore shutdown failures.
+        }
+
+        try
+        {
+            _comThread.Join(TimeSpan.FromSeconds(2));
+        }
+        catch
+        {
+            // Ignore thread join failures.
+        }
+    }
 
     private Task<T> InvokeAsync<T>(Func<T> func)
         => _comDispatcher.InvokeAsync(func).Task;
 
     private Task InvokeAsync(Action action)
         => _comDispatcher.InvokeAsync(action).Task;
+
+    private void ThrowIfDisposed()
+    {
+        if (_disposed)
+        {
+            throw new ObjectDisposedException(nameof(OutlookService));
+        }
+    }
 
     private void EnsureClassicOutlookOrThrow()
     {
