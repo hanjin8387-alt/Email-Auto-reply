@@ -48,4 +48,9 @@
 
     <sys:String x:Key="Str.Empty.Selection.Title">메일을 선택하세요</sys:String>
     <sys:String x:Key="Str.Empty.Selection.Body">왼쪽 목록에서 메일을 선택하면 마스킹된 요약이 표시됩니다.</sys:String>
+
+    <sys:String x:Key="Str.Tray.StatusIdle">상태: 대기</sys:String>
+    <sys:String x:Key="Str.Tray.StatusProcessing">상태: 처리 중</sys:String>
+    <sys:String x:Key="Str.Tray.OpenDashboard">대시보드 열기</sys:String>
+    <sys:String x:Key="Str.Tray.Exit">종료</sys:String>
 </ResourceDictionary>

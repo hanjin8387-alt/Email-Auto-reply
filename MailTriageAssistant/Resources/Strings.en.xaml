@@ -48,4 +48,9 @@
 
     <sys:String x:Key="Str.Empty.Selection.Title">Select an email</sys:String>
     <sys:String x:Key="Str.Empty.Selection.Body">Select an email on the left to view the redacted summary.</sys:String>
+
+    <sys:String x:Key="Str.Tray.StatusIdle">Status: Idle</sys:String>
+    <sys:String x:Key="Str.Tray.StatusProcessing">Status: Processing</sys:String>
+    <sys:String x:Key="Str.Tray.OpenDashboard">Open dashboard</sys:String>
+    <sys:String x:Key="Str.Tray.Exit">Exit</sys:String>
 </ResourceDictionary>

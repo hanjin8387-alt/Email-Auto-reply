@@ -2,9 +2,13 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.Drawing;
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Threading;
+using Hardcodet.Wpf.TaskbarNotification;
 using MailTriageAssistant.Models;
 using MailTriageAssistant.Services;
 using MailTriageAssistant.ViewModels;
@@ -16,6 +20,9 @@ namespace MailTriageAssistant;
 public partial class App : Application
 {
     private ServiceProvider? _serviceProvider;
+    private TaskbarIcon? _trayIcon;
+
+    internal static bool IsExitRequested { get; private set; }
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -34,6 +41,9 @@ public partial class App : Application
 
         var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
         MainWindow = mainWindow;
+
+        TryInitializeSystemTray(mainWindow);
+
         mainWindow.Show();
 
         base.OnStartup(e);
@@ -41,6 +51,16 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        try
+        {
+            _trayIcon?.Dispose();
+        }
+        catch
+        {
+            // Ignore tray disposal issues.
+        }
+        _trayIcon = null;
+
         try
         {
             var stats = _serviceProvider?.GetService<SessionStatsService>();
@@ -68,6 +88,147 @@ public partial class App : Application
         Log.CloseAndFlush();
 
         base.OnExit(e);
+    }
+
+    private void TryInitializeSystemTray(MainWindow mainWindow)
+    {
+        try
+        {
+            var config = _serviceProvider?.GetService<IConfiguration>();
+            if (config is null)
+            {
+                return;
+            }
+
+            var enabled = config.GetValue("TriageSettings:EnableSystemTray", defaultValue: true);
+            if (!enabled)
+            {
+                return;
+            }
+
+            if (mainWindow.DataContext is not MainViewModel vm)
+            {
+                return;
+            }
+
+            InitializeSystemTray(mainWindow, vm);
+        }
+        catch
+        {
+            // Ignore system tray initialization failures; app should still run.
+        }
+    }
+
+    private void InitializeSystemTray(MainWindow mainWindow, MainViewModel viewModel)
+    {
+        if (_trayIcon is not null)
+        {
+            return;
+        }
+
+        var statusItem = new MenuItem { IsEnabled = false };
+        void UpdateStatus()
+        {
+            statusItem.Header = GetResourceString(viewModel.IsLoading
+                ? "Str.Tray.StatusProcessing"
+                : "Str.Tray.StatusIdle");
+        }
+
+        UpdateStatus();
+        viewModel.PropertyChanged += (_, args) =>
+        {
+            if (!string.Equals(args.PropertyName, nameof(MainViewModel.IsLoading), StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            mainWindow.Dispatcher.Invoke(UpdateStatus);
+        };
+
+        var menu = new ContextMenu();
+        menu.Items.Add(statusItem);
+        menu.Items.Add(new Separator());
+
+        var runTriage = new MenuItem { Header = GetResourceString("Str.Button.LoadEmails") };
+        runTriage.Click += (_, _) => ExecuteCommand(viewModel.LoadEmailsCommand);
+
+        var copyDigest = new MenuItem { Header = GetResourceString("Str.Button.GenerateDigestTeams") };
+        copyDigest.Click += (_, _) => ExecuteCommand(viewModel.GenerateDigestCommand);
+
+        var open = new MenuItem { Header = GetResourceString("Str.Tray.OpenDashboard") };
+        open.Click += (_, _) => ShowMainWindow(mainWindow);
+
+        var exit = new MenuItem { Header = GetResourceString("Str.Tray.Exit") };
+        exit.Click += (_, _) =>
+        {
+            IsExitRequested = true;
+            Shutdown();
+        };
+
+        menu.Items.Add(runTriage);
+        menu.Items.Add(copyDigest);
+        menu.Items.Add(new Separator());
+        menu.Items.Add(open);
+        menu.Items.Add(exit);
+
+        _trayIcon = new TaskbarIcon
+        {
+            Icon = SystemIcons.Application,
+            ToolTipText = GetResourceString("Str.MainWindow.Title"),
+            ContextMenu = menu,
+            Visibility = Visibility.Visible,
+        };
+
+        _trayIcon.TrayMouseDoubleClick += (_, _) => ShowMainWindow(mainWindow);
+    }
+
+    private static string GetResourceString(string key)
+    {
+        try
+        {
+            return (Current?.TryFindResource(key) as string) ?? key;
+        }
+        catch
+        {
+            return key;
+        }
+    }
+
+    private static void ExecuteCommand(ICommand command)
+    {
+        try
+        {
+            if (command.CanExecute(null))
+            {
+                command.Execute(null);
+            }
+        }
+        catch
+        {
+            // Ignore command failures from tray.
+        }
+    }
+
+    private static void ShowMainWindow(MainWindow mainWindow)
+    {
+        try
+        {
+            if (!mainWindow.IsVisible)
+            {
+                mainWindow.Show();
+            }
+
+            if (mainWindow.WindowState == WindowState.Minimized)
+            {
+                mainWindow.WindowState = WindowState.Normal;
+            }
+
+            mainWindow.Activate();
+        }
+        catch
+        {
+            // Ignore window show failures.
+        }
     }
 
     private static void ConfigureServices(IServiceCollection services)

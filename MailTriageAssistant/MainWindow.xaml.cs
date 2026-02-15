@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.Windows;
 using MailTriageAssistant.ViewModels;
 
@@ -12,5 +13,18 @@ public partial class MainWindow : Window
 
         InitializeComponent();
         DataContext = viewModel;
+
+        Closing += OnClosingToTray;
+    }
+
+    private void OnClosingToTray(object? sender, CancelEventArgs e)
+    {
+        if (App.IsExitRequested)
+        {
+            return;
+        }
+
+        e.Cancel = true;
+        Hide();
     }
 }
