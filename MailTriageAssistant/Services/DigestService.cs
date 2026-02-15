@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Windows;
 using MailTriageAssistant.Models;
 
@@ -10,6 +11,10 @@ namespace MailTriageAssistant.Services;
 
 public sealed class DigestService
 {
+    private static readonly Regex EmailRegex = new(
+        @"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
     private readonly ClipboardSecurityHelper _clipboardHelper;
     private readonly RedactionService _redactionService;
 
@@ -74,6 +79,10 @@ public sealed class DigestService
         _clipboardHelper.SecureCopy(digest, alreadyRedacted: true);
 
         var email = (userEmail ?? string.Empty).Trim();
+        if (!string.IsNullOrEmpty(email) && !EmailRegex.IsMatch(email))
+        {
+            email = string.Empty;
+        }
         var https = string.IsNullOrWhiteSpace(email)
             ? "https://teams.microsoft.com"
             : $"https://teams.microsoft.com/l/chat/0/0?users={Uri.EscapeDataString(email)}";
