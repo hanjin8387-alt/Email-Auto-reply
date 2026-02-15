@@ -64,28 +64,28 @@ public sealed class OutlookService : IOutlookService, IDisposable
         _comDispatcher = tcs.Task.GetAwaiter().GetResult();
     }
 
-    public Task<List<RawEmailHeader>> FetchInboxHeaders()
+    public Task<List<RawEmailHeader>> FetchInboxHeaders(CancellationToken ct = default)
     {
         ThrowIfDisposed();
-        return InvokeAsync(FetchInboxHeadersInternal);
+        return InvokeAsync(FetchInboxHeadersInternal, ct);
     }
 
-    public Task<string> GetBody(string entryId)
+    public Task<string> GetBody(string entryId, CancellationToken ct = default)
     {
         ThrowIfDisposed();
-        return InvokeAsync(() => GetBodyInternal(entryId));
+        return InvokeAsync(() => GetBodyInternal(entryId), ct);
     }
 
-    public Task OpenItem(string entryId)
+    public Task OpenItem(string entryId, CancellationToken ct = default)
     {
         ThrowIfDisposed();
-        return InvokeAsync(() => OpenItemInternal(entryId));
+        return InvokeAsync(() => OpenItemInternal(entryId), ct);
     }
 
-    public Task CreateDraft(string to, string subject, string body)
+    public Task CreateDraft(string to, string subject, string body, CancellationToken ct = default)
     {
         ThrowIfDisposed();
-        return InvokeAsync(() => CreateDraftInternal(to, subject, body));
+        return InvokeAsync(() => CreateDraftInternal(to, subject, body), ct);
     }
 
     public void Dispose()
@@ -131,15 +131,27 @@ public sealed class OutlookService : IOutlookService, IDisposable
         }
     }
 
-    private async Task<T> InvokeAsync<T>(Func<T> func)
+    private async Task<T> InvokeAsync<T>(Func<T> func, CancellationToken ct)
     {
-        await _comLock.WaitAsync().ConfigureAwait(false);
+        await _comLock.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            var task = _comDispatcher.InvokeAsync(func).Task;
-            var completed = await Task.WhenAny(task, Task.Delay(ComTimeout)).ConfigureAwait(false);
+            var op = _comDispatcher.InvokeAsync(func);
+            var task = op.Task;
+            var timeoutOrCancel = Task.Delay(ComTimeout, ct);
+            var completed = await Task.WhenAny(task, timeoutOrCancel).ConfigureAwait(false);
             if (!ReferenceEquals(completed, task))
             {
+                try
+                {
+                    op.Abort();
+                }
+                catch
+                {
+                    // Ignore abort failures.
+                }
+
+                ct.ThrowIfCancellationRequested();
                 throw new TimeoutException("Outlook COM 작업이 30초 내에 완료되지 않았습니다.");
             }
 
@@ -151,15 +163,27 @@ public sealed class OutlookService : IOutlookService, IDisposable
         }
     }
 
-    private async Task InvokeAsync(Action action)
+    private async Task InvokeAsync(Action action, CancellationToken ct)
     {
-        await _comLock.WaitAsync().ConfigureAwait(false);
+        await _comLock.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            var task = _comDispatcher.InvokeAsync(action).Task;
-            var completed = await Task.WhenAny(task, Task.Delay(ComTimeout)).ConfigureAwait(false);
+            var op = _comDispatcher.InvokeAsync(action);
+            var task = op.Task;
+            var timeoutOrCancel = Task.Delay(ComTimeout, ct);
+            var completed = await Task.WhenAny(task, timeoutOrCancel).ConfigureAwait(false);
             if (!ReferenceEquals(completed, task))
             {
+                try
+                {
+                    op.Abort();
+                }
+                catch
+                {
+                    // Ignore abort failures.
+                }
+
+                ct.ThrowIfCancellationRequested();
                 throw new TimeoutException("Outlook COM 작업이 30초 내에 완료되지 않았습니다.");
             }
 

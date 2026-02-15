@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using System.Windows.Data;
@@ -162,7 +163,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
         EmailsView.Filter = FilterEmailByCategory;
     }
 
-    private async Task LoadEmailsAsync()
+    private Task LoadEmailsAsync()
+        => LoadEmailsAsync(CancellationToken.None);
+
+    private async Task LoadEmailsAsync(CancellationToken ct)
     {
 #if DEBUG
         var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -176,12 +180,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         try
         {
-            var headers = await _outlookService.FetchInboxHeaders().ConfigureAwait(true);
+            var headers = await _outlookService.FetchInboxHeaders(ct).ConfigureAwait(true);
             _sessionStats.RecordHeadersLoaded(headers.Count);
 
             var analyzed = new List<AnalyzedItem>(headers.Count);
             foreach (var h in headers)
             {
+                ct.ThrowIfCancellationRequested();
                 var triage = _triageService.AnalyzeHeader(h.SenderEmail, h.Subject);
                 _sessionStats.RecordTriage(triage.Category);
 
@@ -208,7 +213,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             StatusMessage = Emails.Count == 0 ? "표시할 메일이 없습니다." : $"메일 {Emails.Count}개 로드 완료";
             _logger.LogInformation("LoadEmails completed: {Count} items.", Emails.Count);
 
-            PrefetchTopBodiesAsync().SafeFireAndForget();
+            PrefetchTopBodiesAsync(ct).SafeFireAndForget();
         }
         catch (NotSupportedException)
         {
@@ -239,7 +244,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
     }
 
-    private async Task LoadSelectedEmailBodyAsync(AnalyzedItem? item)
+    private Task LoadSelectedEmailBodyAsync(AnalyzedItem? item)
+        => LoadSelectedEmailBodyAsync(item, CancellationToken.None);
+
+    private async Task LoadSelectedEmailBodyAsync(AnalyzedItem? item, CancellationToken ct)
     {
         if (item is null || item.IsBodyLoaded)
         {
@@ -256,7 +264,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         {
             StatusMessage = "본문을 불러오는 중...";
 
-            var body = await _outlookService.GetBody(item.EntryId).ConfigureAwait(true);
+            var body = await _outlookService.GetBody(item.EntryId, ct).ConfigureAwait(true);
 
             var triage = _triageService.AnalyzeWithBody(item.SenderEmail, item.Subject, body);
             item.Category = triage.Category;
@@ -294,19 +302,23 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
     }
 
-    private async Task PrefetchTopBodiesAsync()
+    private Task PrefetchTopBodiesAsync()
+        => PrefetchTopBodiesAsync(CancellationToken.None);
+
+    private async Task PrefetchTopBodiesAsync(CancellationToken ct)
     {
         try
         {
             var top = Emails.Take(10).ToList();
             foreach (var item in top)
             {
+                ct.ThrowIfCancellationRequested();
                 if (item.IsBodyLoaded)
                 {
                     continue;
                 }
 
-                var body = await _outlookService.GetBody(item.EntryId).ConfigureAwait(true);
+                var body = await _outlookService.GetBody(item.EntryId, ct).ConfigureAwait(true);
                 var triage = _triageService.AnalyzeWithBody(item.SenderEmail, item.Subject, body);
 
                 item.Category = triage.Category;
@@ -328,7 +340,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
     }
 
-    private async Task GenerateDigestAsync()
+    private Task GenerateDigestAsync()
+        => GenerateDigestAsync(CancellationToken.None);
+
+    private async Task GenerateDigestAsync(CancellationToken ct)
     {
 #if DEBUG
         var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -346,12 +361,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
             foreach (var item in top)
             {
+                ct.ThrowIfCancellationRequested();
                 if (item.IsBodyLoaded)
                 {
                     continue;
                 }
 
-                var body = await _outlookService.GetBody(item.EntryId).ConfigureAwait(true);
+                var body = await _outlookService.GetBody(item.EntryId, ct).ConfigureAwait(true);
                 var triage = _triageService.AnalyzeWithBody(item.SenderEmail, item.Subject, body);
 
                 item.Category = triage.Category;
@@ -408,7 +424,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
     }
 
-    private async Task ReplyAsync()
+    private Task ReplyAsync()
+        => ReplyAsync(CancellationToken.None);
+
+    private async Task ReplyAsync(CancellationToken ct)
     {
         if (SelectedEmail is null || SelectedTemplate is null)
         {
@@ -441,7 +460,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 subject = $"RE: {subject}";
             }
 
-            await _outlookService.CreateDraft(SelectedEmail.SenderEmail, subject, body).ConfigureAwait(true);
+            await _outlookService.CreateDraft(SelectedEmail.SenderEmail, subject, body, ct).ConfigureAwait(true);
             StatusMessage = "Outlook 초안이 열렸습니다.";
         }
         catch (NotSupportedException)
@@ -463,7 +482,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
     }
 
-    private async Task OpenInOutlookAsync()
+    private Task OpenInOutlookAsync()
+        => OpenInOutlookAsync(CancellationToken.None);
+
+    private async Task OpenInOutlookAsync(CancellationToken ct)
     {
         if (SelectedEmail is null)
         {
@@ -478,7 +500,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         try
         {
-            await _outlookService.OpenItem(SelectedEmail.EntryId).ConfigureAwait(true);
+            await _outlookService.OpenItem(SelectedEmail.EntryId, ct).ConfigureAwait(true);
             StatusMessage = "Outlook에서 메일을 열었습니다.";
         }
         catch (NotSupportedException)
