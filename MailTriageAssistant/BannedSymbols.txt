@@ -1,0 +1,4 @@
+# Banned APIs to prevent accidental PII/body logging.
+T:System.Console;Do not use Console. Never log email body content.
+T:System.Diagnostics.Debug;Do not use Debug.* (especially Write/WriteLine). Never log email body content.
+T:System.Diagnostics.Trace;Do not use Trace.* (especially Write/WriteLine). Never log email body content.
