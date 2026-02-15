@@ -14,6 +14,9 @@ namespace MailTriageAssistant.ViewModels;
 
 public sealed class MainViewModel : INotifyPropertyChanged
 {
+    private const string OutlookNotSupportedMessage = "Classic Outlook이 필요합니다. New Outlook(olk.exe)은 지원되지 않습니다.";
+    private const string OutlookUnavailableMessage = "Outlook과 연결할 수 없습니다. Classic Outlook 실행 및 상태를 확인해 주세요.";
+
     private readonly IOutlookService _outlookService;
     private readonly RedactionService _redactionService;
     private readonly ClipboardSecurityHelper _clipboardSecurityHelper;
@@ -151,15 +154,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
             StatusMessage = Emails.Count == 0 ? "표시할 메일이 없습니다." : $"메일 {Emails.Count}개 로드 완료";
         }
-        catch (NotSupportedException ex)
+        catch (NotSupportedException)
         {
-            StatusMessage = ex.Message;
-            MessageBox.Show(ex.Message, "Outlook", MessageBoxButton.OK, MessageBoxImage.Warning);
+            ShowOutlookNotSupported();
         }
-        catch (InvalidOperationException ex)
+        catch (InvalidOperationException)
         {
-            StatusMessage = ex.Message;
-            MessageBox.Show(ex.Message, "Outlook", MessageBoxButton.OK, MessageBoxImage.Information);
+            ShowOutlookUnavailable();
         }
         catch
         {
@@ -198,15 +199,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
             StatusMessage = "본문 로드 완료";
         }
-        catch (NotSupportedException ex)
+        catch (NotSupportedException)
         {
-            StatusMessage = ex.Message;
-            MessageBox.Show(ex.Message, "Outlook", MessageBoxButton.OK, MessageBoxImage.Warning);
+            ShowOutlookNotSupported();
         }
-        catch (InvalidOperationException ex)
+        catch (InvalidOperationException)
         {
-            StatusMessage = ex.Message;
-            MessageBox.Show(ex.Message, "Outlook", MessageBoxButton.OK, MessageBoxImage.Information);
+            ShowOutlookUnavailable();
         }
         catch
         {
@@ -260,15 +259,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
         }
-        catch (NotSupportedException ex)
+        catch (NotSupportedException)
         {
-            StatusMessage = ex.Message;
-            MessageBox.Show(ex.Message, "Outlook", MessageBoxButton.OK, MessageBoxImage.Warning);
+            ShowOutlookNotSupported();
         }
-        catch (InvalidOperationException ex)
+        catch (InvalidOperationException)
         {
-            StatusMessage = ex.Message;
-            MessageBox.Show(ex.Message, "Outlook", MessageBoxButton.OK, MessageBoxImage.Information);
+            ShowOutlookUnavailable();
         }
         catch
         {
@@ -319,15 +316,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
             await _outlookService.CreateDraft(SelectedEmail.SenderEmail, subject, body).ConfigureAwait(true);
             StatusMessage = "Outlook 초안이 열렸습니다.";
         }
-        catch (NotSupportedException ex)
+        catch (NotSupportedException)
         {
-            StatusMessage = ex.Message;
-            MessageBox.Show(ex.Message, "Outlook", MessageBoxButton.OK, MessageBoxImage.Warning);
+            ShowOutlookNotSupported();
         }
-        catch (InvalidOperationException ex)
+        catch (InvalidOperationException)
         {
-            StatusMessage = ex.Message;
-            MessageBox.Show(ex.Message, "Outlook", MessageBoxButton.OK, MessageBoxImage.Information);
+            ShowOutlookUnavailable();
         }
         catch
         {
@@ -360,6 +355,18 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
     }
 
+    private void ShowOutlookNotSupported()
+    {
+        StatusMessage = OutlookNotSupportedMessage;
+        MessageBox.Show(OutlookNotSupportedMessage, "Outlook", MessageBoxButton.OK, MessageBoxImage.Warning);
+    }
+
+    private void ShowOutlookUnavailable()
+    {
+        StatusMessage = OutlookUnavailableMessage;
+        MessageBox.Show(OutlookUnavailableMessage, "Outlook", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
@@ -375,4 +382,3 @@ public sealed class MainViewModel : INotifyPropertyChanged
         return true;
     }
 }
-
