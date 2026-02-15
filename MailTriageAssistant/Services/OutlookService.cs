@@ -76,6 +76,19 @@ public sealed class OutlookService : IOutlookService, IDisposable
         return InvokeAsync(() => GetBodyInternal(entryId), ct);
     }
 
+    public Task<IReadOnlyDictionary<string, string>> GetBodies(IReadOnlyList<string> entryIds, CancellationToken ct = default)
+    {
+        ThrowIfDisposed();
+        if (entryIds is null)
+        {
+            throw new ArgumentNullException(nameof(entryIds));
+        }
+
+        return InvokeAsync(
+            () => (IReadOnlyDictionary<string, string>)GetBodiesInternal(entryIds, ct),
+            ct);
+    }
+
     public Task OpenItem(string entryId, CancellationToken ct = default)
     {
         ThrowIfDisposed();
@@ -468,6 +481,43 @@ public sealed class OutlookService : IOutlookService, IDisposable
         {
             SafeReleaseComObject(raw);
         }
+    }
+
+    private Dictionary<string, string> GetBodiesInternal(IReadOnlyList<string> entryIds, CancellationToken ct)
+    {
+        EnsureClassicOutlookOrThrow();
+
+        using var _ = MailTriageAssistant.Helpers.PerfScope.Start("GetBodiesInternal", _logger);
+
+        var result = new Dictionary<string, string>(capacity: entryIds.Count, StringComparer.Ordinal);
+        foreach (var entryId in entryIds)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (string.IsNullOrWhiteSpace(entryId))
+            {
+                continue;
+            }
+
+            try
+            {
+                result[entryId] = GetBodyInternal(entryId);
+            }
+            catch (NotSupportedException)
+            {
+                throw;
+            }
+            catch (InvalidOperationException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // Batch get: skip a problematic item and continue.
+                _logger.LogDebug("GetBodies skipped item due to {ExceptionType}.", ex.GetType().Name);
+            }
+        }
+
+        return result;
     }
 
     private void OpenItemInternal(string entryId)

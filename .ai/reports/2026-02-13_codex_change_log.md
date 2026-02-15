@@ -106,3 +106,13 @@ Plan: `.ai/plans/2026-02-13_perf_master_plan.md`
 - **Perf Before**: n/a
 - **Perf After**: n/a
 - **Notes**: Added perf budget guardrails for manual regression checks.
+
+## [1-1] perf: Add batch GetBodies API
+- **Status**: OK Committed
+- **Files**: `MailTriageAssistant/Services/IOutlookService.cs`, `MailTriageAssistant/Services/OutlookService.cs`
+- **Lines**: +52 / -0
+- **Build**: OK (0 warnings)
+- **Test**: OK (107/107 passed)
+- **Perf Before**: n/a
+- **Perf After**: expected fewer COM InvokeAsync calls for prefetch/digest
+- **Notes**: Added `GetBodies(entryIds)` that runs a single COM `InvokeAsync` and loops on the STA thread.
