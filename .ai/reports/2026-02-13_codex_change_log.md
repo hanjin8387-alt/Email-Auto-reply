@@ -76,3 +76,13 @@ Plan: `.ai/plans/2026-02-13_perf_master_plan.md`
 - **Perf Before**: n/a
 - **Perf After**: n/a
 - **Notes**: Added timing emission for `prefetch_ms` via `PrefetchTopBodiesAsync`.
+
+## [0-5] bench: Log startup_ms and memory_mb
+- **Status**: OK Committed
+- **Files**: `MailTriageAssistant/App.xaml.cs`
+- **Lines**: +36 / -2
+- **Build**: OK (0 warnings)
+- **Test**: OK (107/107 passed)
+- **Perf Before**: n/a
+- **Perf After**: n/a
+- **Notes**: Debug-only startup timing (OnStartup → MainWindow.Loaded) + WorkingSet64 MB logging; stores `startup_ms` in PerfMetrics.

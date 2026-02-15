@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Windows;
@@ -22,6 +23,9 @@ public partial class App : Application
     private ServiceProvider? _serviceProvider;
     private TaskbarIcon? _trayIcon;
 
+    private long? _startupMs;
+    private double? _startupWorkingSetMb;
+
     internal static bool IsExitRequested { get; private set; }
 
     protected override void OnStartup(StartupEventArgs e)
@@ -36,13 +40,43 @@ public partial class App : Application
         TryApplyUserVipOverrides(_serviceProvider);
         TryApplyLanguageResources(_serviceProvider);
 
-        _serviceProvider.GetRequiredService<ILogger<App>>()
-            .LogInformation("App started.");
+#if DEBUG
+        var startupStart = Stopwatch.GetTimestamp();
+#endif
+
+        var appLogger = _serviceProvider.GetRequiredService<ILogger<App>>();
+        appLogger.LogInformation("App started.");
 
         var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
         MainWindow = mainWindow;
 
         TryInitializeSystemTray(mainWindow);
+
+#if DEBUG
+        mainWindow.Loaded += (_, _) =>
+        {
+            try
+            {
+                var elapsed = Stopwatch.GetElapsedTime(startupStart);
+                var startupMs = (long)Math.Round(elapsed.TotalMilliseconds);
+                var workingSetMb = Math.Round(Process.GetCurrentProcess().WorkingSet64 / (1024d * 1024d), 1);
+
+                _startupMs = startupMs;
+                _startupWorkingSetMb = workingSetMb;
+
+                appLogger.LogInformation(
+                    "Startup metrics: startup_ms={StartupMs}, memory_mb={MemoryMb}.",
+                    startupMs,
+                    workingSetMb);
+
+                MailTriageAssistant.Helpers.PerfMetrics.AddTiming("startup_ms", startupMs);
+            }
+            catch
+            {
+                // Ignore startup measurement failures.
+            }
+        };
+#endif
 
         mainWindow.Show();
 
