@@ -12,6 +12,28 @@ internal sealed class PerfEventSource : EventSource
     }
 
     [Event(1, Level = EventLevel.Informational)]
+    public void MeasureStart(long id, string name)
+    {
+        if (!IsEnabled())
+        {
+            return;
+        }
+
+        WriteEvent(1, id, name ?? string.Empty);
+    }
+
+    [Event(2, Level = EventLevel.Informational)]
+    public void MeasureStop(long id, long elapsedMs)
+    {
+        if (!IsEnabled())
+        {
+            return;
+        }
+
+        WriteEvent(2, id, elapsedMs);
+    }
+
+    [Event(3, Level = EventLevel.Informational)]
     public void Measure(string name, long elapsedMs)
     {
         if (!IsEnabled())
@@ -19,7 +41,6 @@ internal sealed class PerfEventSource : EventSource
             return;
         }
 
-        WriteEvent(1, name ?? string.Empty, elapsedMs);
+        WriteEvent(3, name ?? string.Empty, elapsedMs);
     }
 }
-

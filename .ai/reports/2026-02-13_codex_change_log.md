@@ -46,3 +46,13 @@ Plan: `.ai/plans/2026-02-13_perf_master_plan.md`
 - **Perf Before**: n/a
 - **Perf After**: n/a
 - **Notes**: Debug-only instrumentation; logs only scope name + elapsed time (no email content).
+
+## [0-2] bench: Add PerfEventSource start/stop events
+- **Status**: OK Committed
+- **Files**: `MailTriageAssistant/Helpers/PerfEventSource.cs`, `MailTriageAssistant/Helpers/PerfScope.cs`
+- **Lines**: +33 / -4
+- **Build**: OK (0 warnings)
+- **Test**: OK (107/107 passed)
+- **Perf Before**: n/a
+- **Perf After**: n/a
+- **Notes**: Added ETW start/stop events; PerfScope now emits start/stop.

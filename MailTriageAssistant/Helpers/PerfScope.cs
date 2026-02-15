@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading;
 using Microsoft.Extensions.Logging;
 
 namespace MailTriageAssistant.Helpers;
@@ -8,12 +9,16 @@ namespace MailTriageAssistant.Helpers;
 internal readonly struct PerfScope : IDisposable
 {
 #if DEBUG
+    private static long s_nextId;
+
+    private readonly long _id;
     private readonly string _name;
     private readonly long _startTimestamp;
     private readonly ILogger? _logger;
 
-    private PerfScope(string name, long startTimestamp, ILogger? logger)
+    private PerfScope(long id, string name, long startTimestamp, ILogger? logger)
     {
+        _id = id;
         _name = name;
         _startTimestamp = startTimestamp;
         _logger = logger;
@@ -28,8 +33,10 @@ internal readonly struct PerfScope : IDisposable
             name = "unknown";
         }
 
+        var id = Interlocked.Increment(ref s_nextId);
         var start = Stopwatch.GetTimestamp();
-        return new PerfScope(name, start, logger);
+        PerfEventSource.Log.MeasureStart(id, name);
+        return new PerfScope(id, name, start, logger);
 #else
         _ = name;
         _ = logger;
@@ -43,6 +50,7 @@ internal readonly struct PerfScope : IDisposable
         var elapsed = Stopwatch.GetElapsedTime(_startTimestamp);
         var elapsedMs = (long)Math.Round(elapsed.TotalMilliseconds);
 
+        PerfEventSource.Log.MeasureStop(_id, elapsedMs);
         PerfEventSource.Log.Measure(_name, elapsedMs);
         PerfMetrics.AddTiming(_name, elapsedMs);
 
