@@ -1,10 +1,14 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using System.IO;
 using System.Windows;
 using System.Windows.Threading;
 using MailTriageAssistant.Models;
 using MailTriageAssistant.Services;
 using MailTriageAssistant.ViewModels;
+using Serilog;
+using Serilog.Events;
 
 namespace MailTriageAssistant;
 
@@ -21,6 +25,9 @@ public partial class App : Application
         ConfigureServices(services);
         _serviceProvider = services.BuildServiceProvider();
 
+        _serviceProvider.GetRequiredService<ILogger<App>>()
+            .LogInformation("App started.");
+
         var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
         MainWindow = mainWindow;
         mainWindow.Show();
@@ -32,6 +39,8 @@ public partial class App : Application
     {
         _serviceProvider?.Dispose();
         _serviceProvider = null;
+
+        Log.CloseAndFlush();
 
         base.OnExit(e);
     }
@@ -46,6 +55,8 @@ public partial class App : Application
         services.AddSingleton<IConfiguration>(configuration);
         services.Configure<TriageSettings>(configuration.GetSection(nameof(TriageSettings)));
 
+        ConfigureLogging(services);
+
         services.AddSingleton<IDialogService, WpfDialogService>();
         services.AddSingleton<RedactionService>();
         services.AddSingleton<ClipboardSecurityHelper>();
@@ -56,6 +67,34 @@ public partial class App : Application
 
         services.AddSingleton<MainViewModel>();
         services.AddSingleton<MainWindow>();
+    }
+
+    private static void ConfigureLogging(IServiceCollection services)
+    {
+        var logDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "MailTriageAssistant",
+            "logs");
+
+        Directory.CreateDirectory(logDir);
+        var logPath = Path.Combine(logDir, "MailTriageAssistant-.log");
+
+        Log.Logger = new LoggerConfiguration()
+            .MinimumLevel.Information()
+            .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+            .Enrich.FromLogContext()
+            .WriteTo.File(
+                logPath,
+                rollingInterval: RollingInterval.Day,
+                retainedFileCountLimit: 7,
+                shared: true)
+            .CreateLogger();
+
+        services.AddLogging(builder =>
+        {
+            builder.ClearProviders();
+            builder.AddSerilog(Log.Logger, dispose: true);
+        });
     }
 
     private static void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
