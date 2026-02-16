@@ -26,6 +26,16 @@ public partial class App : Application
 #if DEBUG
     private long? _startupMs;
     private double? _startupWorkingSetMb;
+    private DispatcherTimer? _memorySnapshotTimer;
+    private readonly List<MemorySnapshot> _memorySnapshots = new();
+
+    private sealed record MemorySnapshot(
+        DateTimeOffset utc,
+        double working_set_mb,
+        double managed_heap_mb,
+        int gc_gen0,
+        int gc_gen1,
+        int gc_gen2);
 #endif
 
     internal static bool IsExitRequested { get; private set; }
@@ -98,6 +108,8 @@ public partial class App : Application
             {
                 // Ignore startup measurement failures.
             }
+
+            TryStartDebugMemorySnapshots(appLogger);
 #endif
         };
 
@@ -109,6 +121,16 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
 #if DEBUG
+        try
+        {
+            _memorySnapshotTimer?.Stop();
+        }
+        catch
+        {
+            // Ignore snapshot timer stop failures.
+        }
+        _memorySnapshotTimer = null;
+
         TryWritePerfMetrics();
 #endif
 
@@ -171,6 +193,7 @@ public partial class App : Application
                 startup_ms = _startupMs,
                 startup_working_set_mb = _startupWorkingSetMb,
                 exit_working_set_mb = exitWorkingSetMb,
+                memory_snapshots = _memorySnapshots,
                 timings = MailTriageAssistant.Helpers.PerfMetrics.Snapshot(),
             };
 
@@ -180,6 +203,65 @@ public partial class App : Application
         catch
         {
             // Ignore perf metrics failures on shutdown.
+        }
+    }
+
+    private void TryStartDebugMemorySnapshots(ILogger<App> appLogger)
+    {
+        if (_memorySnapshotTimer is not null)
+        {
+            return;
+        }
+
+        try
+        {
+            var timer = new DispatcherTimer(DispatcherPriority.Background, Dispatcher)
+            {
+                Interval = TimeSpan.FromMinutes(10),
+            };
+
+            timer.Tick += (_, _) => TryCaptureDebugMemorySnapshot(appLogger);
+            _memorySnapshotTimer = timer;
+
+            // Capture an initial baseline snapshot and then every 10 minutes.
+            TryCaptureDebugMemorySnapshot(appLogger);
+            timer.Start();
+        }
+        catch
+        {
+            // Ignore snapshot timer startup failures.
+        }
+    }
+
+    private void TryCaptureDebugMemorySnapshot(ILogger<App> appLogger)
+    {
+        try
+        {
+            var proc = Process.GetCurrentProcess();
+            var workingSetMb = Math.Round(proc.WorkingSet64 / (1024d * 1024d), 1);
+            var managedHeapMb = Math.Round(GC.GetTotalMemory(forceFullCollection: false) / (1024d * 1024d), 1);
+
+            var snapshot = new MemorySnapshot(
+                utc: DateTimeOffset.UtcNow,
+                working_set_mb: workingSetMb,
+                managed_heap_mb: managedHeapMb,
+                gc_gen0: GC.CollectionCount(0),
+                gc_gen1: GC.CollectionCount(1),
+                gc_gen2: GC.CollectionCount(2));
+
+            _memorySnapshots.Add(snapshot);
+
+            appLogger.LogInformation(
+                "Memory snapshot: working_set_mb={WorkingSetMb}, managed_heap_mb={ManagedHeapMb}, gc_gen0={Gen0}, gc_gen1={Gen1}, gc_gen2={Gen2}.",
+                workingSetMb,
+                managedHeapMb,
+                snapshot.gc_gen0,
+                snapshot.gc_gen1,
+                snapshot.gc_gen2);
+        }
+        catch
+        {
+            // Ignore memory snapshot failures.
         }
     }
 #endif
