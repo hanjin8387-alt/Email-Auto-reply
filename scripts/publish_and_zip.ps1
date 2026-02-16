@@ -20,13 +20,19 @@ $tag = Get-Date -Format "yyyyMMdd_HHmmss"
 function Publish-And-Zip([string]$rid) {
     $outDir = Join-Path $dist "MailTriageAssistant-$rid-$tag"
     $zipPath = Join-Path $dist "MailTriageAssistant-$rid-$tag.zip"
-    $guidePath = Join-Path $root "docs\\MailTriageAssistant_사용설명서.md"
+    # PowerShell 5.1 treats UTF-8 files without BOM as ANSI when parsing scripts.
+    # Avoid embedding non-ASCII paths here; locate the Korean guide by ASCII wildcard.
+    $docsDir = Join-Path $root "docs"
+    $guide = $null
+    if (Test-Path $docsDir) {
+        $guide = Get-ChildItem -Path $docsDir -File -Filter "MailTriageAssistant_*.md" | Sort-Object Name | Select-Object -First 1
+    }
 
     Write-Host "Publishing $rid -> $outDir"
-    dotnet publish $project -c Release -r $rid --self-contained true -o $outDir | Write-Host
+    dotnet publish $project -c Release -r $rid --self-contained true -o $outDir -p:PublishTrimmed=false | Write-Host
 
-    if (Test-Path $guidePath) {
-        Copy-Item $guidePath (Join-Path $outDir "UserGuide_ko.md") -Force
+    if ($guide -and (Test-Path $guide.FullName)) {
+        Copy-Item $guide.FullName (Join-Path $outDir "UserGuide_ko.md") -Force
     }
 
     Write-Host "Zipping -> $zipPath"
