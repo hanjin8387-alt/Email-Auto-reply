@@ -198,3 +198,14 @@ Plan: `.ai/plans/2026-02-13_perf_master_plan.md`
 - **Perf Before**: n/a
 - **Perf After**: smaller publish output (no PDBs) + clean Release builds
 - **Notes**: Added `<DebugType>none</DebugType>` (Release). Wrapped debug-only perf fields in `#if DEBUG` to avoid Release warnings.
+
+## [3-3] build: Enable PublishReadyToRun in Release
+- **Status**: OK Committed
+- **Files**: `MailTriageAssistant/MailTriageAssistant.csproj`
+- **Lines**: +1 / -0
+- **Build**: OK (0 warnings)
+- **Test**: OK (107/107 passed)
+- **Publish**: OK (Release `win-x64`, `-p:PublishTrimmed=false`), size ≈ 174.78 MB
+- **Perf Before**: n/a
+- **Perf After**: potentially faster startup (ReadyToRun)
+- **Notes**: Added `<PublishReadyToRun>true</PublishReadyToRun>` (Release).
