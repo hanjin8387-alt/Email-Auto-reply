@@ -209,3 +209,13 @@ Plan: `.ai/plans/2026-02-13_perf_master_plan.md`
 - **Perf Before**: n/a
 - **Perf After**: potentially faster startup (ReadyToRun)
 - **Notes**: Added `<PublishReadyToRun>true</PublishReadyToRun>` (Release).
+
+## [4-1] perceived: Add body loading overlay in detail panel
+- **Status**: OK Committed
+- **Files**: `MailTriageAssistant/MainWindow.xaml`
+- **Lines**: +40 / -10
+- **Build**: OK (0 warnings)
+- **Test**: OK (107/107 passed)
+- **Perf Before**: n/a
+- **Perf After**: improved perceived body-load feedback (no blank panel)
+- **Notes**: Added an overlay over the summary box while `IsLoading` and `SelectedEmail.IsBodyLoaded == false`.
