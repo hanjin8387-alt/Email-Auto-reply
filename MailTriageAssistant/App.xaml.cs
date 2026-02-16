@@ -45,6 +45,10 @@ public partial class App : Application
         // Never surface raw exception messages that could contain email content.
         DispatcherUnhandledException += OnDispatcherUnhandledException;
 
+#if DEBUG
+        var perfAutoExit = e.Args.Any(static a => string.Equals(a, "--perf-auto-exit", StringComparison.OrdinalIgnoreCase));
+#endif
+
         Window? splashWindow = null;
         try
         {
@@ -110,6 +114,16 @@ public partial class App : Application
             }
 
             TryStartDebugMemorySnapshots(appLogger);
+
+            if (perfAutoExit)
+            {
+                appLogger.LogInformation("Perf auto-exit enabled; shutting down after startup.");
+                Dispatcher.BeginInvoke(() =>
+                {
+                    IsExitRequested = true;
+                    Shutdown();
+                }, DispatcherPriority.Background);
+            }
 #endif
         };
 

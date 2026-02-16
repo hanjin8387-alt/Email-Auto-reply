@@ -288,3 +288,13 @@ Plan: `.ai/plans/2026-02-13_perf_master_plan.md`
 - **Perf Before**: n/a
 - **Perf After**: avoids repeated COM header enumeration within 30 seconds (faster repeated refresh)
 - **Notes**: Cache is in-memory only (headers only, no bodies) and is cleared on `ResetConnection()`.
+
+## [6-1] bench: Collect perf_metrics.json and compare against budget
+- **Status**: OK Committed
+- **Files**: `MailTriageAssistant/App.xaml.cs`
+- **Lines**: +14 / -0
+- **Build**: OK (0 warnings)
+- **Test**: OK (107/107 passed)
+- **Perf Before**: n/a
+- **Perf After**: `startup_ms=164` (budget `<= 2500`), `startup_working_set_mb=116.2` (budget `<= 150`), `exit_working_set_mb=117`, `memory_snapshots_count=1`
+- **Notes**: Generated Debug metrics at `%LOCALAPPDATA%\\MailTriageAssistant\\perf_metrics.json` by running `MailTriageAssistant.exe --perf-auto-exit` (needed because close normally hides to tray). Only `startup_ms` timing is present because no inbox/digest actions were executed during the smoke run.
