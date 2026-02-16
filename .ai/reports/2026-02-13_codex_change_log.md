@@ -228,3 +228,13 @@ Plan: `.ai/plans/2026-02-13_perf_master_plan.md`
 - **Perf Before**: n/a
 - **Perf After**: n/a
 - **Notes**: Already implemented in `[1-4] perf: Differential update in LoadEmailsAsync` via `selectedEntryId` restore logic.
+
+## [4-3] perceived: Update auto-refresh status once per minute
+- **Status**: OK Committed
+- **Files**: `MailTriageAssistant/ViewModels/MainViewModel.cs`
+- **Lines**: +26 / -3
+- **Build**: OK (0 warnings)
+- **Test**: OK (107/107 passed)
+- **Perf Before**: n/a
+- **Perf After**: reduced UI noise (minute-granularity countdown)
+- **Notes**: Added a 1-minute status timer and render countdown from `NextAutoRefreshAt`.

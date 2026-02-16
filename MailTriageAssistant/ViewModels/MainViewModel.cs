@@ -35,6 +35,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private readonly ILogger<MainViewModel> _logger;
 
     private readonly DispatcherTimer _autoRefreshTimer;
+    private readonly DispatcherTimer _autoRefreshStatusTimer;
     private CancellationTokenSource? _autoRefreshCts;
     private int _autoRefreshFailureStreak;
     private Task _prefetchTask = Task.CompletedTask;
@@ -173,6 +174,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
             IsEnabled = false,
         };
         _autoRefreshTimer.Tick += OnAutoRefreshTimerTick;
+
+        _autoRefreshStatusTimer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromMinutes(1),
+            IsEnabled = true,
+        };
+        _autoRefreshStatusTimer.Tick += (_, _) => UpdateAutoRefreshStatusText();
 
         Templates = _templateService.GetTemplates();
         SelectedTemplate = Templates.FirstOrDefault();
@@ -582,8 +590,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private void UpdateAutoRefreshStatusText()
     {
-        var minutes = Math.Max(0, _settingsMonitor.CurrentValue.AutoRefreshIntervalMinutes);
-        if (minutes <= 0)
+        var configuredMinutes = Math.Max(0, _settingsMonitor.CurrentValue.AutoRefreshIntervalMinutes);
+        if (configuredMinutes <= 0)
         {
             AutoRefreshStatusText = string.Empty;
             return;
@@ -595,7 +603,22 @@ public sealed class MainViewModel : INotifyPropertyChanged
             return;
         }
 
-        AutoRefreshStatusText = $"다음 분류: {minutes}분 후";
+        if (NextAutoRefreshAt is null)
+        {
+            AutoRefreshStatusText = $"다음 분류: {configuredMinutes}분 후";
+            return;
+        }
+
+        var remaining = NextAutoRefreshAt.Value - DateTimeOffset.Now;
+        if (remaining <= TimeSpan.Zero)
+        {
+            AutoRefreshStatusText = "다음 분류: 곧";
+            return;
+        }
+
+        // Rounded to minutes: the status timer ticks every minute to avoid noisy UI updates.
+        var remainingMinutes = (int)Math.Ceiling(remaining.TotalMinutes);
+        AutoRefreshStatusText = $"다음 분류: {remainingMinutes}분 후";
     }
 
     private Task LoadSelectedEmailBodyAsync(AnalyzedItem? item)
