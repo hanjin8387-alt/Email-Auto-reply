@@ -688,8 +688,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         try
         {
+            var prefetchCount = Math.Clamp(_settingsMonitor.CurrentValue.PrefetchCount, 0, 50);
+            if (prefetchCount <= 0)
+            {
+                return;
+            }
+
             var targets = Emails
-                .Take(10)
+                .Take(prefetchCount)
                 .Where(i => !i.IsBodyLoaded && !string.IsNullOrWhiteSpace(i.EntryId))
                 .ToList();
             if (targets.Count == 0)

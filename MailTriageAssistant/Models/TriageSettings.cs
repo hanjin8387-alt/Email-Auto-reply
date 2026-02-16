@@ -8,6 +8,8 @@ public sealed class TriageSettings
 
     public int AutoRefreshIntervalMinutes { get; set; } = 0;
 
+    public int PrefetchCount { get; set; } = 10;
+
     public string[] VipSenders { get; set; } = new[]
     {
         "ceo@company.com",

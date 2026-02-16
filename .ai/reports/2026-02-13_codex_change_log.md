@@ -248,3 +248,13 @@ Plan: `.ai/plans/2026-02-13_perf_master_plan.md`
 - **Perf Before**: n/a
 - **Perf After**: improved perceived startup (immediate visual feedback)
 - **Notes**: Shows a lightweight splash window early in `OnStartup` and closes it on `MainWindow.Loaded`.
+
+## [4-5] perceived: Add PrefetchCount setting
+- **Status**: OK Committed
+- **Files**: `MailTriageAssistant/Models/TriageSettings.cs`, `MailTriageAssistant/appsettings.json`, `MailTriageAssistant/ViewModels/MainViewModel.cs`
+- **Lines**: +10 / -1
+- **Build**: OK (0 warnings)
+- **Test**: OK (107/107 passed)
+- **Perf Before**: n/a
+- **Perf After**: configurable prefetch workload (avoid over-prefetching on slower machines)
+- **Notes**: Added `PrefetchCount` (default 10) and use it in `PrefetchTopBodiesAsync`.
