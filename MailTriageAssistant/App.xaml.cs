@@ -23,9 +23,10 @@ public partial class App : Application
 {
     private ServiceProvider? _serviceProvider;
     private TaskbarIcon? _trayIcon;
-
+#if DEBUG
     private long? _startupMs;
     private double? _startupWorkingSetMb;
+#endif
 
     internal static bool IsExitRequested { get; private set; }
 

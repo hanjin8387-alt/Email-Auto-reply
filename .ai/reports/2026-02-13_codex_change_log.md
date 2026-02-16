@@ -187,3 +187,14 @@ Plan: `.ai/plans/2026-02-13_perf_master_plan.md`
 - **Perf Before**: n/a
 - **Perf After**: reduced regex JIT/overhead for repeated redaction
 - **Notes**: Converted 10 regex rules to `[GeneratedRegex]` source-generated regexes.
+
+## [3-2] build: Disable Release PDB generation
+- **Status**: OK Committed
+- **Files**: `MailTriageAssistant/MailTriageAssistant.csproj`, `MailTriageAssistant/App.xaml.cs`
+- **Lines**: +3 / -1
+- **Build**: OK (0 warnings)
+- **Test**: OK (107/107 passed)
+- **Publish**: OK (Release `win-x64`, `-p:PublishTrimmed=false`), size ≈ 155.53 MB
+- **Perf Before**: n/a
+- **Perf After**: smaller publish output (no PDBs) + clean Release builds
+- **Notes**: Added `<DebugType>none</DebugType>` (Release). Wrapped debug-only perf fields in `#if DEBUG` to avoid Release warnings.
