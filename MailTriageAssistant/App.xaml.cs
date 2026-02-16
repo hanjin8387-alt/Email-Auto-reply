@@ -39,6 +39,7 @@ public partial class App : Application
 #endif
 
     internal static bool IsExitRequested { get; private set; }
+    internal static bool IsSystemTrayEnabled { get; private set; }
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -157,6 +158,7 @@ public partial class App : Application
             // Ignore tray disposal issues.
         }
         _trayIcon = null;
+        IsSystemTrayEnabled = false;
 
         try
         {
@@ -401,6 +403,7 @@ public partial class App : Application
             ContextMenu = menu,
             Visibility = Visibility.Visible,
         };
+        IsSystemTrayEnabled = true;
 
         _trayIcon.TrayMouseDoubleClick += (_, _) => ShowMainWindow(mainWindow);
     }

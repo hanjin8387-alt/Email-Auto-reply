@@ -19,7 +19,7 @@ public partial class MainWindow : Window
 
     private void OnClosingToTray(object? sender, CancelEventArgs e)
     {
-        if (App.IsExitRequested)
+        if (App.IsExitRequested || !App.IsSystemTrayEnabled)
         {
             return;
         }
