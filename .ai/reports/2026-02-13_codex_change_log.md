@@ -219,3 +219,12 @@ Plan: `.ai/plans/2026-02-13_perf_master_plan.md`
 - **Perf Before**: n/a
 - **Perf After**: improved perceived body-load feedback (no blank panel)
 - **Notes**: Added an overlay over the summary box while `IsLoading` and `SelectedEmail.IsBodyLoaded == false`.
+
+## [4-2] perceived: Restore selected email after refresh
+- **Status**: Skipped (already implemented)
+- **Files**: n/a
+- **Build**: OK (0 warnings)
+- **Test**: OK (107/107 passed)
+- **Perf Before**: n/a
+- **Perf After**: n/a
+- **Notes**: Already implemented in `[1-4] perf: Differential update in LoadEmailsAsync` via `selectedEntryId` restore logic.
