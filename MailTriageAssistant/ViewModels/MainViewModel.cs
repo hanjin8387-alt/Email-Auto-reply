@@ -292,6 +292,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 #if DEBUG
         var sw = System.Diagnostics.Stopwatch.StartNew();
 #endif
+        using var perf = PerfScope.Start("header_load_ms", _logger);
         _logger.LogInformation("LoadEmails started (showDialogs={ShowDialogs}).", showDialogs);
         IsLoading = true;
         StatusMessage = "Outlook에서 메일 헤더를 불러오는 중...";
@@ -674,6 +675,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             return;
         }
 
+        using var perf = PerfScope.Start("body_load_ms", _logger);
+
         var setLoading = !IsLoading;
         if (setLoading)
         {
@@ -727,7 +730,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     private async Task PrefetchTopBodiesAsync(CancellationToken ct)
     {
-        using var _ = MailTriageAssistant.Helpers.PerfScope.Start("PrefetchTopBodiesAsync", _logger);
+        using var _ = PerfScope.Start("prefetch_ms", _logger);
 
         try
         {
@@ -809,7 +812,10 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
         try
         {
-            var top = Emails
+            string digest;
+            using (PerfScope.Start("digest_ms", _logger))
+            {
+                var top = Emails
                 .OrderByDescending(e => e.Score)
                 .ThenByDescending(e => e.ReceivedTime)
                 .Take(10)
@@ -859,7 +865,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                 }
             }
 
-            var digest = _digestService.GenerateDigest(top);
+                digest = _digestService.GenerateDigest(top);
+            }
+
             _sessionStats.RecordDigestGenerated();
             _sessionStats.RecordDigestCopied();
             _sessionStats.RecordTeamsOpenAttempt();
