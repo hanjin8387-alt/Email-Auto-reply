@@ -278,3 +278,13 @@ Plan: `.ai/plans/2026-02-13_perf_master_plan.md`
 - **Perf Before**: n/a
 - **Perf After**: memory tracking (Debug-only), no runtime impact in Release
 - **Notes**: Added a Debug-only `DispatcherTimer` that captures Working Set + managed heap/GC counters every 10 minutes, logs them, and includes them in `perf_metrics.json` on exit.
+
+## [5-3] build: Add 30-second TTL cache for inbox headers
+- **Status**: OK Committed
+- **Files**: `MailTriageAssistant/Services/OutlookService.cs`
+- **Lines**: +22 / -3
+- **Build**: OK (0 warnings)
+- **Test**: OK (107/107 passed)
+- **Perf Before**: n/a
+- **Perf After**: avoids repeated COM header enumeration within 30 seconds (faster repeated refresh)
+- **Notes**: Cache is in-memory only (headers only, no bodies) and is cleared on `ResetConnection()`.

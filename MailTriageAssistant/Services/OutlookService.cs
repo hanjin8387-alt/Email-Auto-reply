@@ -17,6 +17,7 @@ namespace MailTriageAssistant.Services;
 public sealed class OutlookService : IOutlookService, IDisposable
 {
     private static readonly TimeSpan ComTimeout = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan HeadersCacheTtl = TimeSpan.FromSeconds(30);
     private const int MaxFetchCount = 50;
     private const int MaxBodyLength = 1500;
     private const int RestrictDays = 7;
@@ -27,6 +28,9 @@ public sealed class OutlookService : IOutlookService, IDisposable
     private readonly SemaphoreSlim _comLock = new(initialCount: 1, maxCount: 1);
     private bool _disposed;
     private bool _newOutlookChecked;
+
+    private DateTimeOffset _headersCacheUtc;
+    private List<RawEmailHeader>? _headersCache;
 
     private Outlook.Application? _app;
     private Outlook.NameSpace? _session;
@@ -296,9 +300,19 @@ public sealed class OutlookService : IOutlookService, IDisposable
 
     private List<RawEmailHeader> FetchInboxHeadersInternal()
     {
-        EnsureClassicOutlookOrThrow();
-
         using var _ = MailTriageAssistant.Helpers.PerfScope.Start("FetchInboxHeadersInternal", _logger);
+
+        var now = DateTimeOffset.UtcNow;
+        if (_headersCache is not null && now - _headersCacheUtc <= HeadersCacheTtl)
+        {
+            _logger.LogDebug(
+                "Fetched inbox headers from cache: {Count} (age_ms={AgeMs}).",
+                _headersCache.Count,
+                (long)Math.Round((now - _headersCacheUtc).TotalMilliseconds));
+            return new List<RawEmailHeader>(_headersCache);
+        }
+
+        EnsureClassicOutlookOrThrow();
 
         Outlook.MAPIFolder? inbox = null;
         Outlook.Items? items = null;
@@ -362,7 +376,10 @@ public sealed class OutlookService : IOutlookService, IDisposable
 
             result.Sort((a, b) => b.ReceivedTime.CompareTo(a.ReceivedTime));
             _logger.LogInformation("Fetched inbox headers: {Count}.", result.Count);
-            return result;
+
+            _headersCacheUtc = DateTimeOffset.UtcNow;
+            _headersCache = result;
+            return new List<RawEmailHeader>(result);
         }
         catch (COMException ex)
         {
@@ -608,6 +625,8 @@ public sealed class OutlookService : IOutlookService, IDisposable
         _session = null;
         _app = null;
         _newOutlookChecked = false;
+        _headersCache = null;
+        _headersCacheUtc = default;
     }
 
     private static void SafeReleaseComObject(object? obj)
