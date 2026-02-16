@@ -45,6 +45,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Resource Include="Resources\\Splash.png" />
+  </ItemGroup>
+
+  <ItemGroup>
     <AdditionalFiles Include="BannedSymbols.txt" />
   </ItemGroup>
 

@@ -238,3 +238,13 @@ Plan: `.ai/plans/2026-02-13_perf_master_plan.md`
 - **Perf Before**: n/a
 - **Perf After**: reduced UI noise (minute-granularity countdown)
 - **Notes**: Added a 1-minute status timer and render countdown from `NextAutoRefreshAt`.
+
+## [4-4] perceived: Add splash screen
+- **Status**: OK Committed
+- **Files**: `MailTriageAssistant/App.xaml.cs`, `MailTriageAssistant/MailTriageAssistant.csproj`, `MailTriageAssistant/Resources/Splash.png`
+- **Lines**: +60 / -2 (plus binary `Splash.png`)
+- **Build**: OK (0 warnings)
+- **Test**: OK (107/107 passed)
+- **Perf Before**: n/a
+- **Perf After**: improved perceived startup (immediate visual feedback)
+- **Notes**: Shows a lightweight splash window early in `OnStartup` and closes it on `MainWindow.Loaded`.

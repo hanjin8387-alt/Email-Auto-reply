@@ -35,6 +35,17 @@ public partial class App : Application
         // Never surface raw exception messages that could contain email content.
         DispatcherUnhandledException += OnDispatcherUnhandledException;
 
+        Window? splashWindow = null;
+        try
+        {
+            splashWindow = CreateSplashWindow();
+            splashWindow.Show();
+        }
+        catch
+        {
+            // Ignore splash screen failures.
+        }
+
         var services = new ServiceCollection();
         ConfigureServices(services);
         _serviceProvider = services.BuildServiceProvider();
@@ -54,9 +65,19 @@ public partial class App : Application
 
         TryInitializeSystemTray(mainWindow);
 
-#if DEBUG
         mainWindow.Loaded += (_, _) =>
         {
+            try
+            {
+                splashWindow?.Close();
+            }
+            catch
+            {
+                // Ignore splash close failures.
+            }
+            splashWindow = null;
+
+#if DEBUG
             try
             {
                 var elapsed = Stopwatch.GetElapsedTime(startupStart);
@@ -77,8 +98,8 @@ public partial class App : Application
             {
                 // Ignore startup measurement failures.
             }
-        };
 #endif
+        };
 
         mainWindow.Show();
 
@@ -190,6 +211,39 @@ public partial class App : Application
         {
             // Ignore system tray initialization failures; app should still run.
         }
+    }
+
+    private static Window CreateSplashWindow()
+    {
+        // WPF splash window (kept minimal to avoid delaying startup).
+        var uri = new Uri("pack://application:,,,/Resources/Splash.png", UriKind.Absolute);
+
+        var bitmap = new System.Windows.Media.Imaging.BitmapImage();
+        bitmap.BeginInit();
+        bitmap.UriSource = uri;
+        bitmap.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+        bitmap.EndInit();
+        bitmap.Freeze();
+
+        var image = new System.Windows.Controls.Image
+        {
+            Source = bitmap,
+            Stretch = System.Windows.Media.Stretch.UniformToFill,
+        };
+
+        return new Window
+        {
+            Title = "MailTriageAssistant",
+            Width = 640,
+            Height = 360,
+            WindowStyle = WindowStyle.None,
+            ResizeMode = ResizeMode.NoResize,
+            ShowInTaskbar = false,
+            Topmost = true,
+            WindowStartupLocation = WindowStartupLocation.CenterScreen,
+            Background = System.Windows.Media.Brushes.White,
+            Content = image,
+        };
     }
 
     private void InitializeSystemTray(MainWindow mainWindow, MainViewModel viewModel)
