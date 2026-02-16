@@ -1,10 +1,12 @@
 # Codex Change Log — MailTriageAssistant
-Date: 2026-02-15
-Plan: `.ai/plans/2026-02-13_feature_master_plan.md`
+Date: 2026-02-16
+Plans:
+- `.ai/plans/2026-02-13_feature_master_plan.md`
+- `.ai/plans/2026-02-13_perf_master_plan.md`
 
 ## Regression Status
-- Build: OK (`dotnet build MailTriageAssistant/MailTriageAssistant.csproj`)
-- Tests: OK (86 passed) (`dotnet test MailTriageAssistant.Tests/`)
+- Build: OK (0 warnings) (`dotnet build MailTriageAssistant/MailTriageAssistant.csproj`)
+- Tests: OK (107/107 passed) (`dotnet test MailTriageAssistant.Tests/`)
 
 ## Key Changes (High Level)
 - Security: PII redaction 강화(계좌/여권/IP/URL토큰 등) + 유니코드 정규화(FormKC), Win+V 클립보드 히스토리 제외 + 30초 자동 삭제, Markdown/Template 인젝션 방어, 예외 메시지 직접 노출 방지, New Outlook(`olk.exe`) 차단.
@@ -298,3 +300,19 @@ Plan: `.ai/plans/2026-02-13_perf_master_plan.md`
 - **Perf Before**: n/a
 - **Perf After**: `startup_ms=164` (budget `<= 2500`), `startup_working_set_mb=116.2` (budget `<= 150`), `exit_working_set_mb=117`, `memory_snapshots_count=1`
 - **Notes**: Generated Debug metrics at `%LOCALAPPDATA%\\MailTriageAssistant\\perf_metrics.json` by running `MailTriageAssistant.exe --perf-auto-exit` (needed because close normally hides to tray). Only `startup_ms` timing is present because no inbox/digest actions were executed during the smoke run.
+
+## [6-2] bench: Finalize perf change log
+- **Status**: OK Committed
+- **Files**: `.ai/reports/2026-02-13_codex_change_log.md`
+- **Lines**: +22 / -4
+- **Build**: OK (0 warnings)
+- **Test**: OK (107/107 passed)
+- **Perf Before**: n/a
+- **Perf After**: n/a
+- **Notes**: Updated header/regression status and added a short completion summary.
+
+## Completion Summary
+- Phase 0-6 completed and all commit gates (build + tests) are green.
+- Debug smoke metrics (2026-02-16): `startup_ms=164`, `startup_working_set_mb=116.2`, `exit_working_set_mb=117` (within `.ai/perf_budget.json`).
+- To validate `header_load_ms`/`body_load_ms`/`prefetch_ms`/`digest_ms` budgets: run the normal triage flow and exit; then review timings in `%LOCALAPPDATA%\\MailTriageAssistant\\perf_metrics.json`.
+- Publish: WPF trimming may require `-p:PublishTrimmed=false` (see `[3-2]`/`[3-3]` notes and size measurements).
