@@ -9,14 +9,18 @@
     <NuGetAudit>true</NuGetAudit>
   </PropertyGroup>
 
-  <!-- Publish/Distribution settings (Phase 5-3). Kept in Release to avoid impacting inner-loop Debug builds/tests. -->
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
-    <PublishTrimmed>true</PublishTrimmed>
-    <TrimMode>partial</TrimMode>
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
+  <!-- Publish/Distribution settings.
+       NOTE: WPF trimming is not supported/recommended and fails builds (NETSDK1168).
+       These properties are applied only during `dotnet publish`. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release' and '$(IsPublish)' == 'true'">
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
-    <DebugType>none</DebugType>
     <PublishReadyToRun>true</PublishReadyToRun>
+    <PublishTrimmed>false</PublishTrimmed>
   </PropertyGroup>
 
   <ItemGroup>
@@ -33,10 +37,7 @@
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(Configuration)' == 'Release'">
-    <!-- Outlook COM interop types must not be trimmed away. -->
-    <TrimmerRootAssembly Include="Microsoft.Office.Interop.Outlook" />
-  </ItemGroup>
+  <!-- TrimmerRootAssembly intentionally omitted because trimming is disabled for WPF publish. -->
 
   <ItemGroup>
     <Content Include="appsettings.json">
