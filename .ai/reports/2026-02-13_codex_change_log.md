@@ -258,3 +258,13 @@ Plan: `.ai/plans/2026-02-13_perf_master_plan.md`
 - **Perf Before**: n/a
 - **Perf After**: configurable prefetch workload (avoid over-prefetching on slower machines)
 - **Notes**: Added `PrefetchCount` (default 10) and use it in `PrefetchTopBodiesAsync`.
+
+## [5-1] perf: Dispose IOptionsMonitor OnChange subscription
+- **Status**: OK Committed
+- **Files**: `MailTriageAssistant/ViewModels/MainViewModel.cs`
+- **Lines**: +45 / -2
+- **Build**: OK (0 warnings)
+- **Test**: OK (107/107 passed)
+- **Perf Before**: n/a
+- **Perf After**: reduced leak risk (proper subscription disposal)
+- **Notes**: Store `IOptionsMonitor.OnChange()` return value and implement `IDisposable` to stop timers/cancel CTS and dispose the subscription.

@@ -16,7 +16,7 @@ using Microsoft.Extensions.Options;
 
 namespace MailTriageAssistant.ViewModels;
 
-public sealed class MainViewModel : INotifyPropertyChanged
+public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 {
     private const string OutlookNotSupportedMessage = "Classic Outlook이 필요합니다. New Outlook(olk.exe)은 지원되지 않습니다.";
     private const string OutlookUnavailableMessage = "Outlook과 연결할 수 없습니다. Classic Outlook 실행 및 상태를 확인해 주세요.";
@@ -33,6 +33,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private readonly SessionStatsService _sessionStats;
     private readonly IOptionsMonitor<TriageSettings> _settingsMonitor;
     private readonly ILogger<MainViewModel> _logger;
+    private readonly IDisposable? _settingsChangeSubscription;
 
     private readonly DispatcherTimer _autoRefreshTimer;
     private readonly DispatcherTimer _autoRefreshStatusTimer;
@@ -225,7 +226,49 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
 
         ApplyAutoRefreshSettings(_settingsMonitor.CurrentValue);
-        _settingsMonitor.OnChange((settings, _) => ApplyAutoRefreshSettings(settings));
+        _settingsChangeSubscription = _settingsMonitor.OnChange((settings, _) => ApplyAutoRefreshSettings(settings));
+    }
+
+    public void Dispose()
+    {
+        try
+        {
+            _autoRefreshTimer.Stop();
+        }
+        catch
+        {
+            // Ignore timer stop failures.
+        }
+
+        try
+        {
+            _autoRefreshStatusTimer.Stop();
+        }
+        catch
+        {
+            // Ignore timer stop failures.
+        }
+
+        try
+        {
+            _settingsChangeSubscription?.Dispose();
+        }
+        catch
+        {
+            // Ignore subscription disposal failures.
+        }
+
+        try
+        {
+            _autoRefreshCts?.Cancel();
+        }
+        catch
+        {
+            // Ignore cancellation failures.
+        }
+
+        _autoRefreshCts?.Dispose();
+        _autoRefreshCts = null;
     }
 
     private enum LoadEmailsOutcome
