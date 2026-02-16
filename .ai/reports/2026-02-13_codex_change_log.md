@@ -176,3 +176,14 @@ Plan: `.ai/plans/2026-02-13_perf_master_plan.md`
 - **Perf Before**: n/a
 - **Perf After**: fewer full view refreshes during background body loading
 - **Notes**: Enabled live filtering on `Category` (best-effort) and removed refresh calls from prefetch/digest paths.
+
+## [3-1] perf: Use GeneratedRegex for redaction rules
+- **Status**: OK Committed
+- **Files**: `MailTriageAssistant/Services/RedactionService.cs`
+- **Lines**: +41 / -23
+- **Build**: OK (0 warnings)
+- **Test**: OK (107/107 passed)
+- **Security Tests**: OK (27/27 Redaction)
+- **Perf Before**: n/a
+- **Perf After**: reduced regex JIT/overhead for repeated redaction
+- **Notes**: Converted 10 regex rules to `[GeneratedRegex]` source-generated regexes.
