@@ -10,3 +10,6 @@ dist/
 *.sln.docstates
 
 dotnet-install.ps1
+
+.ai/
+publish_measure*/
