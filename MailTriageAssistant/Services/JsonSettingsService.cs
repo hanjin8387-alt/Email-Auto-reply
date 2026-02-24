@@ -3,18 +3,20 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using MailTriageAssistant.Helpers;
 
 namespace MailTriageAssistant.Services;
 
 public sealed class JsonSettingsService : ISettingsService
 {
     private const int MaxEmailLength = 254;
-    private static readonly Regex EmailRegex = new(
-        @"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$",
-        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+    private static readonly JsonSerializerOptions s_jsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        WriteIndented = true,
+    };
 
     private readonly string _settingsPath;
 
@@ -42,7 +44,7 @@ public sealed class JsonSettingsService : ISettingsService
         try
         {
             var json = await File.ReadAllTextAsync(_settingsPath, ct).ConfigureAwait(false);
-            var model = JsonSerializer.Deserialize<SettingsModel>(json, JsonOptions());
+            var model = JsonSerializer.Deserialize<SettingsModel>(json, s_jsonOptions);
             var list = model?.VipSenders ?? Array.Empty<string>();
 
             return list
@@ -83,7 +85,7 @@ public sealed class JsonSettingsService : ISettingsService
             }
 
             var model = new SettingsModel { VipSenders = normalized };
-            var json = JsonSerializer.Serialize(model, JsonOptions());
+            var json = JsonSerializer.Serialize(model, s_jsonOptions);
             await File.WriteAllTextAsync(_settingsPath, json, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
@@ -109,18 +111,10 @@ public sealed class JsonSettingsService : ISettingsService
     private static bool IsValidEmail(string email)
         => !string.IsNullOrWhiteSpace(email)
            && email.Length <= MaxEmailLength
-           && EmailRegex.IsMatch(email);
-
-    private static JsonSerializerOptions JsonOptions()
-        => new()
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            WriteIndented = true,
-        };
+           && EmailValidator.IsValidEmail(email);
 
     private sealed class SettingsModel
     {
         public string[] VipSenders { get; set; } = Array.Empty<string>();
     }
 }
-

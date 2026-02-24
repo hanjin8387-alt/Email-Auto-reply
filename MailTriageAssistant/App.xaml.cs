@@ -286,13 +286,8 @@ public partial class App : Application
     {
         try
         {
-            var config = _serviceProvider?.GetService<IConfiguration>();
-            if (config is null)
-            {
-                return;
-            }
-
-            var enabled = config.GetValue("TriageSettings:EnableSystemTray", defaultValue: true);
+            var triageOptions = _serviceProvider?.GetService<IOptionsMonitor<TriageSettings>>();
+            var enabled = triageOptions?.CurrentValue?.EnableSystemTray ?? true;
             if (!enabled)
             {
                 return;
@@ -557,7 +552,7 @@ public partial class App : Application
                 return;
             }
 
-            var vip = settings.LoadVipSendersAsync().GetAwaiter().GetResult();
+            var vip = Task.Run(() => settings.LoadVipSendersAsync()).GetAwaiter().GetResult();
             if (vip.Count <= 0)
             {
                 return;
@@ -582,7 +577,7 @@ public partial class App : Application
         try
         {
             var triageOptions = services.GetService<IOptionsMonitor<TriageSettings>>();
-            var language = triageOptions?.CurrentValue?.Language ?? "ko";
+            var language = triageOptions?.CurrentValue.Language ?? "ko";
 
             var source = string.Equals(language, "en", StringComparison.OrdinalIgnoreCase)
                 ? "Resources/Strings.en.xaml"

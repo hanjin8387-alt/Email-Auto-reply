@@ -17,11 +17,6 @@ public sealed class TemplateService : ITemplateService
 
     private readonly ILogger<TemplateService> _logger;
 
-    public TemplateService()
-        : this(NullLogger<TemplateService>.Instance)
-    {
-    }
-
     public TemplateService(ILogger<TemplateService> logger)
     {
         _logger = logger ?? NullLogger<TemplateService>.Instance;
@@ -86,9 +81,7 @@ public sealed class TemplateService : ITemplateService
             _logger.LogDebug("Templates listed: {Count}.", _templates.Count);
         }
 
-        return _templates
-            .Select(t => new ReplyTemplate { Id = t.Id, Title = t.Title, BodyContent = t.BodyContent })
-            .ToList();
+        return _templates.ToList();
     }
 
     public string FillTemplate(string templateBody, IReadOnlyDictionary<string, string> values)

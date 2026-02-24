@@ -4,13 +4,14 @@ using System.Linq;
 using FluentAssertions;
 using MailTriageAssistant.Models;
 using MailTriageAssistant.Services;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace MailTriageAssistant.Tests.Services;
 
 public sealed class DigestServiceTests
 {
-    private readonly RedactionService _redaction = new();
+    private readonly RedactionService _redaction = new(NullLogger<RedactionService>.Instance);
 
     private sealed class NullDialogService : IDialogService
     {
@@ -23,7 +24,7 @@ public sealed class DigestServiceTests
     {
         // NOTE: We never call SecureCopy/OpenTeams in these tests to avoid clipboard dependencies.
         var clipboard = new ClipboardSecurityHelper(_redaction);
-        return new DigestService(clipboard, _redaction, new NullDialogService());
+        return new DigestService(clipboard, _redaction, new NullDialogService(), NullLogger<DigestService>.Instance);
     }
 
     private static AnalyzedItem Item(
@@ -78,7 +79,7 @@ public sealed class DigestServiceTests
     }
 
     [Fact]
-    public void GenerateDigest_MultipleItems_OrderedByScoreDesc()
+    public void GenerateDigest_MultipleItems_PreservesInputOrder()
     {
         var sut = CreateSut();
 
@@ -89,16 +90,16 @@ public sealed class DigestServiceTests
             Item(50, subject: "S50"),
         });
 
+        var i30 = digest.IndexOf("| 30 ", StringComparison.Ordinal);
         var i90 = digest.IndexOf("| 90 ", StringComparison.Ordinal);
         var i50 = digest.IndexOf("| 50 ", StringComparison.Ordinal);
-        var i30 = digest.IndexOf("| 30 ", StringComparison.Ordinal);
 
+        i30.Should().BeGreaterThanOrEqualTo(0);
         i90.Should().BeGreaterThanOrEqualTo(0);
         i50.Should().BeGreaterThanOrEqualTo(0);
-        i30.Should().BeGreaterThanOrEqualTo(0);
 
+        i30.Should().BeLessThan(i90);
         i90.Should().BeLessThan(i50);
-        i50.Should().BeLessThan(i30);
     }
 
     [Fact]

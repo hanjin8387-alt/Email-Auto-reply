@@ -1,13 +1,14 @@
 using System.Collections.Generic;
 using FluentAssertions;
 using MailTriageAssistant.Services;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace MailTriageAssistant.Tests.Services;
 
 public sealed class TemplateServiceTests
 {
-    private readonly TemplateService _sut = new();
+    private readonly TemplateService _sut = new(NullLogger<TemplateService>.Instance);
 
     [Fact]
     public void FillTemplate_SinglePlaceholder_Replaced()
@@ -113,13 +114,13 @@ public sealed class TemplateServiceTests
     }
 
     [Fact]
-    public void GetTemplates_ReturnsDeepCopies()
+    public void GetTemplates_ReturnsListCopyWithSharedItems()
     {
         var templates1 = _sut.GetTemplates();
         var templates2 = _sut.GetTemplates();
 
         templates1.Should().NotBeSameAs(templates2);
-        templates1[0].Should().NotBeSameAs(templates2[0]);
+        templates1[0].Should().BeSameAs(templates2[0]);
         templates1[0].Title.Should().Be(templates2[0].Title);
     }
 }

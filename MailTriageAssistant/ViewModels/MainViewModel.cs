@@ -64,11 +64,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             if (SetProperty(ref _selectedEmail, value))
             {
                 CommandManager.InvalidateRequerySuggested();
-                LoadSelectedEmailBodyAsync(value).SafeFireAndForget(_ =>
-                {
-                    StatusMessage = "본문을 불러오는 중 오류가 발생했습니다.";
-                    _dialogService.ShowError(StatusMessage, "오류");
-                });
+                LoadSelectedEmailBodyAsync(value).SafeFireAndForget();
             }
         }
     }
@@ -179,18 +175,18 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         _autoRefreshStatusTimer = new DispatcherTimer(DispatcherPriority.Background)
         {
             Interval = TimeSpan.FromMinutes(1),
-            IsEnabled = true,
+            IsEnabled = false,
         };
         _autoRefreshStatusTimer.Tick += (_, _) => UpdateAutoRefreshStatusText();
 
         Templates = _templateService.GetTemplates();
         SelectedTemplate = Templates.FirstOrDefault();
 
-        LoadEmailsCommand = new AsyncRelayCommand(LoadEmailsAsync, () => !IsLoading);
-        GenerateDigestCommand = new AsyncRelayCommand(GenerateDigestAsync, () => !IsLoading && Emails.Count > 0);
-        ReplyCommand = new AsyncRelayCommand(ReplyAsync, () => !IsLoading && SelectedEmail is not null && SelectedTemplate is not null);
+        LoadEmailsCommand = new AsyncRelayCommand(() => LoadEmailsAsync(), () => !IsLoading);
+        GenerateDigestCommand = new AsyncRelayCommand(() => GenerateDigestAsync(), () => !IsLoading && Emails.Count > 0);
+        ReplyCommand = new AsyncRelayCommand(() => ReplyAsync(), () => !IsLoading && SelectedEmail is not null && SelectedTemplate is not null);
         CopySelectedCommand = new RelayCommand(CopySelected, () => SelectedEmail is not null);
-        OpenInOutlookCommand = new AsyncRelayCommand(OpenInOutlookAsync, () => !IsLoading && SelectedEmail is not null);
+        OpenInOutlookCommand = new AsyncRelayCommand(() => OpenInOutlookAsync(), () => !IsLoading && SelectedEmail is not null);
 
         CategoryFilterOptions = new List<CategoryFilterOption>
         {
@@ -278,10 +274,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         Cancelled,
     }
 
-    private Task LoadEmailsAsync()
-        => LoadEmailsAsync(CancellationToken.None);
-
-    private async Task LoadEmailsAsync(CancellationToken ct)
+    private async Task LoadEmailsAsync(CancellationToken ct = default)
     {
         await TryLoadEmailsAsync(ct, showDialogs: true).ConfigureAwait(true);
         ResetAutoRefreshAfterManualRun();
@@ -390,38 +383,59 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                 }
                 else
                 {
+                    var currentIndexById = new Dictionary<string, int>(Emails.Count, StringComparer.Ordinal);
+
+                    void RefreshIndexRange(int start, int end)
+                    {
+                        for (var idx = start; idx <= end && idx < Emails.Count; idx++)
+                        {
+                            var entryId = Emails[idx].EntryId;
+                            if (!string.IsNullOrWhiteSpace(entryId))
+                            {
+                                currentIndexById[entryId] = idx;
+                            }
+                        }
+                    }
+
+                    RefreshIndexRange(0, Emails.Count - 1);
+
                     for (var i = 0; i < sorted.Count; i++)
                     {
                         var desiredItem = sorted[i];
+                        var desiredEntryId = desiredItem.EntryId;
 
                         if (i >= Emails.Count)
                         {
                             Emails.Add(desiredItem);
-                            continue;
-                        }
 
-                        if (string.Equals(Emails[i].EntryId, desiredItem.EntryId, StringComparison.Ordinal))
-                        {
-                            continue;
-                        }
-
-                        var existingIndex = -1;
-                        for (var j = i + 1; j < Emails.Count; j++)
-                        {
-                            if (string.Equals(Emails[j].EntryId, desiredItem.EntryId, StringComparison.Ordinal))
+                            if (!string.IsNullOrWhiteSpace(desiredEntryId))
                             {
-                                existingIndex = j;
-                                break;
+                                currentIndexById[desiredEntryId] = Emails.Count - 1;
                             }
+
+                            continue;
                         }
+
+                        if (string.Equals(Emails[i].EntryId, desiredEntryId, StringComparison.Ordinal))
+                        {
+                            continue;
+                        }
+
+                        var existingIndex = !string.IsNullOrWhiteSpace(desiredEntryId)
+                            && currentIndexById.TryGetValue(desiredEntryId, out var idx2)
+                            && idx2 > i
+                            ? idx2
+                            : -1;
 
                         if (existingIndex >= 0)
                         {
                             Emails.Move(existingIndex, i);
+                            RefreshIndexRange(i, existingIndex);
                         }
                         else
                         {
                             Emails.Insert(i, desiredItem);
+                            RefreshIndexRange(i, Emails.Count - 1);
                         }
                     }
 
@@ -449,7 +463,6 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             _logger.LogInformation("LoadEmails completed: {Count} items.", Emails.Count);
 
             _prefetchTask = PrefetchTopBodiesAsync(ct);
-            _prefetchTask.SafeFireAndForget();
             return LoadEmailsOutcome.Success;
         }
         catch (OperationCanceledException)
@@ -511,13 +524,15 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     private void ApplyAutoRefreshSettings(TriageSettings settings)
     {
-        var minutes = Math.Max(0, settings.AutoRefreshIntervalMinutes);
+        var minutes = GetAutoRefreshMinutes(settings);
         if (minutes <= 0)
         {
+            _autoRefreshStatusTimer.Stop();
             StopAutoRefresh();
             return;
         }
 
+        _autoRefreshStatusTimer.Start();
         _autoRefreshTimer.Interval = TimeSpan.FromMinutes(minutes);
 
         if (AutoRefreshPaused)
@@ -543,9 +558,14 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         ResetAutoRefreshTimer();
     }
 
+    private static int GetAutoRefreshMinutes(TriageSettings settings)
+        => Math.Max(0, settings.AutoRefreshIntervalMinutes);
+
+    private int GetAutoRefreshMinutes()
+        => GetAutoRefreshMinutes(_settingsMonitor.CurrentValue);
     private void ResetAutoRefreshTimer()
     {
-        var minutes = Math.Max(0, _settingsMonitor.CurrentValue.AutoRefreshIntervalMinutes);
+        var minutes = GetAutoRefreshMinutes();
         if (minutes <= 0 || AutoRefreshPaused)
         {
             _autoRefreshTimer.Stop();
@@ -564,6 +584,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private void StopAutoRefresh()
     {
         _autoRefreshTimer.Stop();
+        _autoRefreshStatusTimer.Stop();
         NextAutoRefreshAt = null;
 
         _autoRefreshCts?.Cancel();
@@ -592,7 +613,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             return;
         }
 
-        var minutes = Math.Max(0, _settingsMonitor.CurrentValue.AutoRefreshIntervalMinutes);
+        var minutes = GetAutoRefreshMinutes();
         if (minutes <= 0)
         {
             StopAutoRefresh();
@@ -634,7 +655,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     private void UpdateAutoRefreshStatusText()
     {
-        var configuredMinutes = Math.Max(0, _settingsMonitor.CurrentValue.AutoRefreshIntervalMinutes);
+        var configuredMinutes = GetAutoRefreshMinutes();
         if (configuredMinutes <= 0)
         {
             AutoRefreshStatusText = string.Empty;
@@ -665,10 +686,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         AutoRefreshStatusText = $"다음 분류: {remainingMinutes}분 후";
     }
 
-    private Task LoadSelectedEmailBodyAsync(AnalyzedItem? item)
-        => LoadSelectedEmailBodyAsync(item, CancellationToken.None);
-
-    private async Task LoadSelectedEmailBodyAsync(AnalyzedItem? item, CancellationToken ct)
+    private async Task LoadSelectedEmailBodyAsync(AnalyzedItem? item, CancellationToken ct = default)
     {
         if (item is null || item.IsBodyLoaded)
         {
@@ -685,36 +703,18 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
         try
         {
-            StatusMessage = "본문을 불러오는 중...";
+            await ExecuteOutlookOperationAsync(
+                async () =>
+                {
+                    StatusMessage = "본문을 불러오는 중...";
 
-            var body = await _outlookService.GetBody(item.EntryId, ct).ConfigureAwait(true);
+                    var body = await _outlookService.GetBody(item.EntryId, ct).ConfigureAwait(true);
+                    ApplyBodyAnalysis(item, body);
 
-            var triage = _triageService.AnalyzeWithBody(item.SenderEmail, item.Subject, body);
-            item.Category = triage.Category;
-            item.Score = triage.Score;
-            item.ActionHint = triage.ActionHint;
-            item.Tags = triage.Tags;
-
-            item.RedactedSummary = string.IsNullOrWhiteSpace(body)
-                ? "(본문이 비어 있습니다.)"
-                : _redactionService.Redact(body);
-            item.IsBodyLoaded = true;
-
-            StatusMessage = "본문 로드 완료";
-            EmailsView.Refresh();
-        }
-        catch (NotSupportedException)
-        {
-            ShowOutlookNotSupported();
-        }
-        catch (InvalidOperationException)
-        {
-            ShowOutlookUnavailable();
-        }
-        catch
-        {
-            StatusMessage = "본문을 불러오는 중 오류가 발생했습니다.";
-            _dialogService.ShowError(StatusMessage, "오류");
+                    StatusMessage = "본문 로드 완료";
+                    EmailsView.Refresh();
+                },
+                "본문을 불러오는 중 오류가 발생했습니다.").ConfigureAwait(true);
         }
         finally
         {
@@ -724,9 +724,6 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             }
         }
     }
-
-    private Task PrefetchTopBodiesAsync()
-        => PrefetchTopBodiesAsync(CancellationToken.None);
 
     private async Task PrefetchTopBodiesAsync(CancellationToken ct)
     {
@@ -775,17 +772,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                     continue;
                 }
 
-                var triage = _triageService.AnalyzeWithBody(item.SenderEmail, item.Subject, body);
-
-                item.Category = triage.Category;
-                item.Score = triage.Score;
-                item.ActionHint = triage.ActionHint;
-                item.Tags = triage.Tags;
-
-                item.RedactedSummary = string.IsNullOrWhiteSpace(body)
-                    ? "(본문이 비어 있습니다.)"
-                    : _redactionService.Redact(body);
-                item.IsBodyLoaded = true;
+                ApplyBodyAnalysis(item, body);
             }
 
             if (statusWasSet && string.Equals(StatusMessage, prefetchStatus, StringComparison.Ordinal))
@@ -799,10 +786,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private Task GenerateDigestAsync()
-        => GenerateDigestAsync(CancellationToken.None);
-
-    private async Task GenerateDigestAsync(CancellationToken ct)
+    private async Task GenerateDigestAsync(CancellationToken ct = default)
     {
 #if DEBUG
         var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -812,91 +796,67 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
         try
         {
-            string digest;
-            using (PerfScope.Start("digest_ms", _logger))
-            {
-                var top = Emails
-                .OrderByDescending(e => e.Score)
-                .ThenByDescending(e => e.ReceivedTime)
-                .Take(10)
-                .ToList();
-
-            var prefetchTask = _prefetchTask;
-            try
-            {
-                await prefetchTask.ConfigureAwait(true);
-            }
-            catch
-            {
-                // Ignore prefetch failures.
-            }
-
-            var missing = top
-                .Where(i => !i.IsBodyLoaded && !string.IsNullOrWhiteSpace(i.EntryId))
-                .ToList();
-            if (missing.Count > 0)
-            {
-                var entryIds = missing
-                    .Select(i => i.EntryId)
-                    .Distinct(StringComparer.Ordinal)
-                    .ToList();
-
-                var bodies = await _outlookService.GetBodies(entryIds, ct).ConfigureAwait(true);
-
-                foreach (var item in missing)
+            await ExecuteOutlookOperationAsync(
+                async () =>
                 {
-                    ct.ThrowIfCancellationRequested();
-                    if (!bodies.TryGetValue(item.EntryId, out var body))
+                    string digest;
+                    using (PerfScope.Start("digest_ms", _logger))
                     {
-                        continue;
+                        var top = Emails
+                            .OrderByDescending(e => e.Score)
+                            .ThenByDescending(e => e.ReceivedTime)
+                            .Take(10)
+                            .ToList();
+
+                        var prefetchTask = _prefetchTask;
+                        try
+                        {
+                            await prefetchTask.ConfigureAwait(true);
+                        }
+                        catch
+                        {
+                            // Ignore prefetch failures.
+                        }
+
+                        var missing = top
+                            .Where(i => !i.IsBodyLoaded && !string.IsNullOrWhiteSpace(i.EntryId))
+                            .ToList();
+                        if (missing.Count > 0)
+                        {
+                            var entryIds = missing
+                                .Select(i => i.EntryId)
+                                .Distinct(StringComparer.Ordinal)
+                                .ToList();
+
+                            var bodies = await _outlookService.GetBodies(entryIds, ct).ConfigureAwait(true);
+
+                            foreach (var item in missing)
+                            {
+                                ct.ThrowIfCancellationRequested();
+                                if (!bodies.TryGetValue(item.EntryId, out var body))
+                                {
+                                    continue;
+                                }
+
+                                ApplyBodyAnalysis(item, body);
+                            }
+                        }
+
+                        digest = _digestService.GenerateDigest(top);
                     }
 
-                    var triage = _triageService.AnalyzeWithBody(item.SenderEmail, item.Subject, body);
+                    _sessionStats.RecordDigestGenerated();
+                    _digestService.OpenTeams(digest, TeamsUserEmail);
+                    _sessionStats.RecordDigestCopied();
+                    _sessionStats.RecordTeamsOpenAttempt();
 
-                    item.Category = triage.Category;
-                    item.Score = triage.Score;
-                    item.ActionHint = triage.ActionHint;
-                    item.Tags = triage.Tags;
+                    StatusMessage = "클립보드에 복사 완료. Teams를 여는 중...";
 
-                    item.RedactedSummary = string.IsNullOrWhiteSpace(body)
-                        ? "(본문이 비어 있습니다.)"
-                        : _redactionService.Redact(body);
-                    item.IsBodyLoaded = true;
-                }
-            }
-
-                digest = _digestService.GenerateDigest(top);
-            }
-
-            _sessionStats.RecordDigestGenerated();
-            _sessionStats.RecordDigestCopied();
-            _sessionStats.RecordTeamsOpenAttempt();
-            _digestService.OpenTeams(digest, TeamsUserEmail);
-
-            StatusMessage = "클립보드에 복사 완료. Teams를 여는 중...";
-
-            _dialogService.ShowInfo(
-                "클립보드에 Digest를 복사했습니다. Teams를 여는 중입니다.\nTeams에서 Copilot에 붙여넣어 주세요.",
-                "Digest 준비 완료");
-        }
-        catch (NotSupportedException)
-        {
-            _sessionStats.RecordError();
-            _logger.LogWarning("GenerateDigest blocked: Outlook not supported.");
-            ShowOutlookNotSupported();
-        }
-        catch (InvalidOperationException)
-        {
-            _sessionStats.RecordError();
-            _logger.LogWarning("GenerateDigest failed: Outlook not available.");
-            ShowOutlookUnavailable();
-        }
-        catch (Exception ex)
-        {
-            _sessionStats.RecordError();
-            _logger.LogError("GenerateDigest failed: {ExceptionType}.", ex.GetType().Name);
-            StatusMessage = "Digest 생성 중 오류가 발생했습니다.";
-            _dialogService.ShowError(StatusMessage, "오류");
+                    _dialogService.ShowInfo(
+                        "클립보드에 Digest를 복사했습니다. Teams를 여는 중입니다.\nTeams에서 Copilot에 붙여넣어 주세요.",
+                        "Digest 준비 완료");
+                },
+                "Digest 생성 중 오류가 발생했습니다.").ConfigureAwait(true);
         }
         finally
         {
@@ -908,10 +868,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private Task ReplyAsync()
-        => ReplyAsync(CancellationToken.None);
-
-    private async Task ReplyAsync(CancellationToken ct)
+    private async Task ReplyAsync(CancellationToken ct = default)
     {
         if (SelectedEmail is null || SelectedTemplate is null)
         {
@@ -929,36 +886,27 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         try
         {
             IsLoading = true;
+            await ExecuteOutlookOperationAsync(
+                async () =>
+                {
+                    var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["TargetDate"] = DateTime.Today.AddDays(2).ToString("yyyy-MM-dd"),
+                        ["ItemName"] = SelectedEmail.Subject,
+                    };
 
-            var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["TargetDate"] = DateTime.Today.AddDays(2).ToString("yyyy-MM-dd"),
-                ["ItemName"] = SelectedEmail.Subject,
-            };
+                    var body = _templateService.FillTemplate(SelectedTemplate.BodyContent, values);
 
-            var body = _templateService.FillTemplate(SelectedTemplate.BodyContent, values);
+                    var subject = SelectedEmail.Subject;
+                    if (!subject.TrimStart().StartsWith("RE:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        subject = $"RE: {subject}";
+                    }
 
-            var subject = SelectedEmail.Subject;
-            if (!subject.TrimStart().StartsWith("RE:", StringComparison.OrdinalIgnoreCase))
-            {
-                subject = $"RE: {subject}";
-            }
-
-            await _outlookService.CreateDraft(SelectedEmail.SenderEmail, subject, body, ct).ConfigureAwait(true);
-            StatusMessage = "Outlook 초안이 열렸습니다.";
-        }
-        catch (NotSupportedException)
-        {
-            ShowOutlookNotSupported();
-        }
-        catch (InvalidOperationException)
-        {
-            ShowOutlookUnavailable();
-        }
-        catch
-        {
-            StatusMessage = "초안 생성 중 오류가 발생했습니다.";
-            _dialogService.ShowError(StatusMessage, "오류");
+                    await _outlookService.CreateDraft(SelectedEmail.SenderEmail, subject, body, ct).ConfigureAwait(true);
+                    StatusMessage = "Outlook 초안이 열렸습니다.";
+                },
+                "초안 생성 중 오류가 발생했습니다.").ConfigureAwait(true);
         }
         finally
         {
@@ -966,10 +914,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private Task OpenInOutlookAsync()
-        => OpenInOutlookAsync(CancellationToken.None);
-
-    private async Task OpenInOutlookAsync(CancellationToken ct)
+    private async Task OpenInOutlookAsync(CancellationToken ct = default)
     {
         if (SelectedEmail is null)
         {
@@ -984,21 +929,13 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
         try
         {
-            await _outlookService.OpenItem(SelectedEmail.EntryId, ct).ConfigureAwait(true);
-            StatusMessage = "Outlook에서 메일을 열었습니다.";
-        }
-        catch (NotSupportedException)
-        {
-            ShowOutlookNotSupported();
-        }
-        catch (InvalidOperationException)
-        {
-            ShowOutlookUnavailable();
-        }
-        catch
-        {
-            StatusMessage = "Outlook에서 메일을 여는 중 오류가 발생했습니다.";
-            _dialogService.ShowError(StatusMessage, "오류");
+            await ExecuteOutlookOperationAsync(
+                async () =>
+                {
+                    await _outlookService.OpenItem(SelectedEmail.EntryId, ct).ConfigureAwait(true);
+                    StatusMessage = "Outlook에서 메일을 열었습니다.";
+                },
+                "Outlook에서 메일을 여는 중 오류가 발생했습니다.").ConfigureAwait(true);
         }
         finally
         {
@@ -1006,6 +943,44 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             {
                 IsLoading = false;
             }
+        }
+    }
+
+    private void ApplyBodyAnalysis(AnalyzedItem item, string body)
+    {
+        var triage = _triageService.AnalyzeWithBody(item.SenderEmail, item.Subject, body);
+        item.Category = triage.Category;
+        item.Score = triage.Score;
+        item.ActionHint = triage.ActionHint;
+        item.Tags = triage.Tags;
+        item.RedactedSummary = string.IsNullOrWhiteSpace(body)
+            ? "(본문이 비어 있습니다.)"
+            : _redactionService.Redact(body);
+        item.IsBodyLoaded = true;
+    }
+
+    private async Task ExecuteOutlookOperationAsync(Func<Task> operation, string errorMessage)
+    {
+        try
+        {
+            await operation().ConfigureAwait(true);
+        }
+        catch (NotSupportedException)
+        {
+            _sessionStats.RecordError();
+            ShowOutlookNotSupported();
+        }
+        catch (InvalidOperationException)
+        {
+            _sessionStats.RecordError();
+            ShowOutlookUnavailable();
+        }
+        catch (Exception ex)
+        {
+            _sessionStats.RecordError();
+            _logger.LogError("{ErrorMessage}: {ExceptionType}.", errorMessage, ex.GetType().Name);
+            StatusMessage = errorMessage;
+            _dialogService.ShowError(StatusMessage, "오류");
         }
     }
 

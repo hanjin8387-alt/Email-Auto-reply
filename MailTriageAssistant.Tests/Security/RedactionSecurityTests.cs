@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using FluentAssertions;
 using MailTriageAssistant.Models;
 using MailTriageAssistant.Services;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace MailTriageAssistant.Tests.Security;
@@ -18,7 +19,7 @@ public sealed class RedactionSecurityTests
     [Fact]
     public void Redact_FullwidthDigits_CannotBypassPhoneMasking()
     {
-        var sut = new RedactionService();
+        var sut = new RedactionService(NullLogger<RedactionService>.Instance);
 
         sut.Redact("０１０-１２３４-５６７８").Should().Be("[PHONE]");
     }
@@ -26,7 +27,7 @@ public sealed class RedactionSecurityTests
     [Fact]
     public void Redact_AccountNumber_IsMasked()
     {
-        var sut = new RedactionService();
+        var sut = new RedactionService(NullLogger<RedactionService>.Instance);
 
         sut.Redact("계좌번호: 123-45-678901").Should().Be("계좌번호: [ACCOUNT]");
     }
@@ -34,7 +35,7 @@ public sealed class RedactionSecurityTests
     [Fact]
     public void Redact_PassportNumber_IsMasked()
     {
-        var sut = new RedactionService();
+        var sut = new RedactionService(NullLogger<RedactionService>.Instance);
 
         sut.Redact("여권번호: M12345678").Should().Be("여권번호: [PASSPORT]");
     }
@@ -42,7 +43,7 @@ public sealed class RedactionSecurityTests
     [Fact]
     public void Redact_IpAddress_IsMasked()
     {
-        var sut = new RedactionService();
+        var sut = new RedactionService(NullLogger<RedactionService>.Instance);
 
         sut.Redact("접속: 192.168.0.10").Should().Be("접속: [IP]");
     }
@@ -50,7 +51,7 @@ public sealed class RedactionSecurityTests
     [Fact]
     public void Redact_UrlTokenValue_IsMasked()
     {
-        var sut = new RedactionService();
+        var sut = new RedactionService(NullLogger<RedactionService>.Instance);
 
         var redacted = sut.Redact("https://example.com/?access_token=abcd1234&x=1");
 
@@ -61,7 +62,7 @@ public sealed class RedactionSecurityTests
     [Fact]
     public void Template_ValueWithBraces_CannotInjectNewPlaceholders()
     {
-        var sut = new TemplateService();
+        var sut = new TemplateService(NullLogger<TemplateService>.Instance);
 
         var result = sut.FillTemplate(
             "안녕하세요, {Key}",
@@ -74,9 +75,9 @@ public sealed class RedactionSecurityTests
     [Fact]
     public void Digest_EscapesMarkdownSpecialChars()
     {
-        var redaction = new RedactionService();
+        var redaction = new RedactionService(NullLogger<RedactionService>.Instance);
         var clipboard = new ClipboardSecurityHelper(redaction);
-        var sut = new DigestService(clipboard, redaction, new NullDialogService());
+        var sut = new DigestService(clipboard, redaction, new NullDialogService(), NullLogger<DigestService>.Instance);
 
         var digest = sut.GenerateDigest(new List<AnalyzedItem>
         {

@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using MailTriageAssistant.Helpers;
 using MailTriageAssistant.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -12,23 +12,16 @@ namespace MailTriageAssistant.Services;
 
 public sealed class DigestService : IDigestService
 {
-    private static readonly Regex EmailRegex = new(
-        @"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$",
-        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+    private static readonly Regex EscapeCellCharsRegex = new(@"[|\[\]()\!<>]", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private readonly ClipboardSecurityHelper _clipboardHelper;
-    private readonly RedactionService _redactionService;
+    private readonly IRedactionService _redactionService;
     private readonly IDialogService _dialogService;
     private readonly ILogger<DigestService> _logger;
 
-    public DigestService(ClipboardSecurityHelper clipboardHelper, RedactionService redactionService, IDialogService dialogService)
-        : this(clipboardHelper, redactionService, dialogService, NullLogger<DigestService>.Instance)
-    {
-    }
-
     public DigestService(
         ClipboardSecurityHelper clipboardHelper,
-        RedactionService redactionService,
+        IRedactionService redactionService,
         IDialogService dialogService,
         ILogger<DigestService> logger)
     {
@@ -42,18 +35,13 @@ public sealed class DigestService : IDigestService
     {
         var sw = Stopwatch.StartNew();
 
-        var ordered = items
-            .OrderByDescending(i => i.Score)
-            .ThenByDescending(i => i.ReceivedTime)
-            .ToList();
-
         var sb = new StringBuilder();
         sb.AppendLine("⚠️ SYSTEM PROMPT: You are my executive assistant. Analyze the following REDACTED email digest.");
         sb.AppendLine();
         sb.AppendLine("| Priority | Sender | Subject | Summary (Redacted) |");
         sb.AppendLine("|---|---|---|---|");
 
-        foreach (var item in ordered)
+        foreach (var item in items)
         {
             var priorityLabel = item.Score >= 80 ? "높음" : item.Score >= 50 ? "중간" : "낮음";
 
@@ -88,7 +76,7 @@ public sealed class DigestService : IDigestService
         sb.AppendLine("Context: All PII has been redacted. Do NOT ask for unredacted information.");
 
         sw.Stop();
-        _logger.LogInformation("Digest generated: {Count} items in {ElapsedMs}ms.", ordered.Count, sw.ElapsedMilliseconds);
+        _logger.LogInformation("Digest generated: {Count} items in {ElapsedMs}ms.", items.Count, sw.ElapsedMilliseconds);
         return sb.ToString();
     }
 
@@ -97,7 +85,7 @@ public sealed class DigestService : IDigestService
         _clipboardHelper.SecureCopy(digest, alreadyRedacted: true);
 
         var email = (userEmail ?? string.Empty).Trim();
-        if (!string.IsNullOrEmpty(email) && !EmailRegex.IsMatch(email))
+        if (!EmailValidator.IsValidEmail(email))
         {
             email = string.Empty;
         }
@@ -153,15 +141,8 @@ public sealed class DigestService : IDigestService
             return string.Empty;
         }
 
-        return text
-            .Replace("|", "\\|", StringComparison.Ordinal)
-            .Replace("[", "\\[", StringComparison.Ordinal)
-            .Replace("]", "\\]", StringComparison.Ordinal)
-            .Replace("(", "\\(", StringComparison.Ordinal)
-            .Replace(")", "\\)", StringComparison.Ordinal)
-            .Replace("!", "\\!", StringComparison.Ordinal)
-            .Replace("<", "\\<", StringComparison.Ordinal)
-            .Replace(">", "\\>", StringComparison.Ordinal)
+        var escaped = EscapeCellCharsRegex.Replace(text, m => "\\" + m.Value);
+        return escaped
             .Replace("\r", " ", StringComparison.Ordinal)
             .Replace("\n", " ", StringComparison.Ordinal)
             .Trim();

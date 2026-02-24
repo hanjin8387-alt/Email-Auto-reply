@@ -37,12 +37,14 @@ public sealed class AsyncRelayCommand : ICommand
 {
     private readonly Func<Task> _execute;
     private readonly Func<bool>? _canExecute;
+    private readonly Action<Exception>? _onException;
     private bool _isRunning;
 
-    public AsyncRelayCommand(Func<Task> execute, Func<bool>? canExecute = null)
+    public AsyncRelayCommand(Func<Task> execute, Func<bool>? canExecute = null, Action<Exception>? onException = null)
     {
         _execute = execute ?? throw new ArgumentNullException(nameof(execute));
         _canExecute = canExecute;
+        _onException = onException;
     }
 
     public bool CanExecute(object? parameter) => !_isRunning && (_canExecute?.Invoke() ?? true);
@@ -60,6 +62,15 @@ public sealed class AsyncRelayCommand : ICommand
             CommandManager.InvalidateRequerySuggested();
             await _execute().ConfigureAwait(true);
         }
+        catch (Exception ex)
+        {
+            if (_onException is null)
+            {
+                throw;
+            }
+
+            _onException(ex);
+        }
         finally
         {
             _isRunning = false;
@@ -73,4 +84,3 @@ public sealed class AsyncRelayCommand : ICommand
         remove => CommandManager.RequerySuggested -= value;
     }
 }
-

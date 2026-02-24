@@ -98,7 +98,6 @@ public sealed class ClipboardSecurityHelper : IDisposable
 
         try
         {
-            var cleared = false;
             if (_copiedContent is not null && _hasCopiedSequenceNumber)
             {
                 var currentSequence = GetClipboardSequenceNumber();
@@ -114,10 +113,12 @@ public sealed class ClipboardSecurityHelper : IDisposable
                 string.Equals(Clipboard.GetText(), _copiedContent, StringComparison.Ordinal))
             {
                 Clipboard.Clear();
-                cleared = true;
+                _logger.LogInformation("Clipboard cleared.");
             }
-
-            _logger.LogInformation(cleared ? "Clipboard cleared." : "Clipboard clear skipped.");
+            else
+            {
+                _logger.LogInformation("Clipboard clear skipped.");
+            }
         }
         catch (Exception ex)
         {

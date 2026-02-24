@@ -1,12 +1,13 @@
 using FluentAssertions;
 using MailTriageAssistant.Services;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace MailTriageAssistant.Tests.Services;
 
 public sealed class RedactionServiceTests
 {
-    private readonly RedactionService _sut = new();
+    private readonly RedactionService _sut = new(NullLogger<RedactionService>.Instance);
 
     [Theory]
     [InlineData("010-1234-5678", "[PHONE]")]

@@ -9,11 +9,6 @@ public sealed partial class RedactionService : IRedactionService
 {
     private readonly ILogger<RedactionService> _logger;
 
-    public RedactionService()
-        : this(NullLogger<RedactionService>.Instance)
-    {
-    }
-
     public RedactionService(ILogger<RedactionService> logger)
     {
         _logger = logger ?? NullLogger<RedactionService>.Instance;

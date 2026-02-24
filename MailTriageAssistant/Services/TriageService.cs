@@ -7,34 +7,31 @@ using Microsoft.Extensions.Options;
 
 namespace MailTriageAssistant.Services;
 
-public sealed class TriageService : ITriageService
+public sealed class TriageService : ITriageService, IDisposable
 {
     public readonly record struct TriageResult(EmailCategory Category, int Score, string ActionHint, string[] Tags);
 
     private TriageSettings _settings;
     private readonly ILogger<TriageService> _logger;
-
-    public TriageService()
-        : this(new TriageSettings(), NullLogger<TriageService>.Instance)
-    {
-    }
-
-    public TriageService(IOptionsMonitor<TriageSettings> optionsMonitor)
-        : this(optionsMonitor, NullLogger<TriageService>.Instance)
-    {
-    }
+    private readonly IDisposable? _settingsSubscription;
 
     public TriageService(IOptionsMonitor<TriageSettings> optionsMonitor, ILogger<TriageService> logger)
     {
         _logger = logger ?? NullLogger<TriageService>.Instance;
         _settings = optionsMonitor?.CurrentValue ?? new TriageSettings();
-        _ = optionsMonitor?.OnChange(updated => _settings = updated);
+        _settingsSubscription = optionsMonitor?.OnChange(updated => _settings = updated);
     }
 
     private TriageService(TriageSettings settings, ILogger<TriageService> logger)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _logger = logger ?? NullLogger<TriageService>.Instance;
+        _settingsSubscription = null;
+    }
+
+    public void Dispose()
+    {
+        _settingsSubscription?.Dispose();
     }
 
     public TriageResult AnalyzeHeader(string sender, string subject)
@@ -68,6 +65,9 @@ public sealed class TriageService : ITriageService
 
         score = Math.Clamp(score, 0, 100);
 
+        // Category priority: Action > Approval > VIP > Meeting > Newsletter > FYI > Other.
+        // If a VIP sender sends an action-required email, it is classified as Action
+        // (highest urgency). VIP is still added to Tags for filtering.
         var category =
             hasAction ? EmailCategory.Action :
             hasApproval ? EmailCategory.Approval :

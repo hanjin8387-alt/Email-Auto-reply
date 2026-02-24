@@ -328,7 +328,7 @@ public sealed class MainViewModelTests
         IDialogService dialogService)
     {
         // NOTE: ClipboardSecurityHelper is injected but not exercised here to avoid clipboard dependencies.
-        var clipboard = new ClipboardSecurityHelper(new RedactionService());
+        var clipboard = new ClipboardSecurityHelper(new RedactionService(NullLogger<RedactionService>.Instance));
         var settings = new TriageSettings { AutoRefreshIntervalMinutes = 0 };
         var options = new Mock<IOptionsMonitor<TriageSettings>>(MockBehavior.Strict);
         options.Setup(o => o.CurrentValue).Returns(settings);
@@ -353,9 +353,28 @@ public sealed class MainViewModelTests
     {
         var method = typeof(MainViewModel)
             .GetMethods(BindingFlags.Instance | BindingFlags.NonPublic)
-            .Single(m => string.Equals(m.Name, name, StringComparison.Ordinal) && m.GetParameters().Length == 0);
+            .Single(m =>
+            {
+                if (!string.Equals(m.Name, name, StringComparison.Ordinal))
+                {
+                    return false;
+                }
 
-        var result = method.Invoke(vm, null);
+                var ps = m.GetParameters();
+                if (ps.Length == 0)
+                {
+                    return true;
+                }
+
+                return ps.Length == 1
+                    && ps[0].ParameterType == typeof(CancellationToken)
+                    && ps[0].IsOptional;
+            });
+
+        var args = method.GetParameters().Length == 1
+            ? new object?[] { CancellationToken.None }
+            : null;
+        var result = method.Invoke(vm, args);
         result.Should().BeAssignableTo<Task>();
         await ((Task)result!).ConfigureAwait(false);
     }

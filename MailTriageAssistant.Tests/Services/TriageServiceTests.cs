@@ -1,13 +1,14 @@
 using FluentAssertions;
 using MailTriageAssistant.Models;
 using MailTriageAssistant.Services;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace MailTriageAssistant.Tests.Services;
 
 public sealed class TriageServiceTests
 {
-    private readonly TriageService _sut = new();
+    private readonly TriageService _sut = new(null!, NullLogger<TriageService>.Instance);
 
     [Fact]
     public void AnalyzeHeader_VipSender_ReturnsVip()
@@ -152,4 +153,3 @@ public sealed class TriageServiceTests
         result.ActionHint.Should().Be("검토");
     }
 }
-

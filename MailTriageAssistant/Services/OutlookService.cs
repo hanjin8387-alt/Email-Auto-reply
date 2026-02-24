@@ -28,17 +28,13 @@ public sealed class OutlookService : IOutlookService, IDisposable
     private readonly SemaphoreSlim _comLock = new(initialCount: 1, maxCount: 1);
     private bool _disposed;
     private bool _newOutlookChecked;
+    private DateTimeOffset _newOutlookCheckExpiry;
 
     private DateTimeOffset _headersCacheUtc;
     private List<RawEmailHeader>? _headersCache;
 
     private Outlook.Application? _app;
     private Outlook.NameSpace? _session;
-
-    public OutlookService()
-        : this(NullLogger<OutlookService>.Instance)
-    {
-    }
 
     public OutlookService(ILogger<OutlookService> logger)
     {
@@ -186,38 +182,8 @@ public sealed class OutlookService : IOutlookService, IDisposable
         }
     }
 
-    private async Task InvokeAsync(Action action, CancellationToken ct)
-    {
-        await _comLock.WaitAsync(ct).ConfigureAwait(false);
-        try
-        {
-            var dispatcher = await _comDispatcherTask.ConfigureAwait(false);
-            var op = dispatcher.InvokeAsync(action);
-            var task = op.Task;
-            var timeoutOrCancel = Task.Delay(ComTimeout, ct);
-            var completed = await Task.WhenAny(task, timeoutOrCancel).ConfigureAwait(false);
-            if (!ReferenceEquals(completed, task))
-            {
-                try
-                {
-                    op.Abort();
-                }
-                catch
-                {
-                    // Ignore abort failures.
-                }
-
-                ct.ThrowIfCancellationRequested();
-                throw new TimeoutException("Outlook COM 작업이 30초 내에 완료되지 않았습니다.");
-            }
-
-            await task.ConfigureAwait(false);
-        }
-        finally
-        {
-            _comLock.Release();
-        }
-    }
+    private Task InvokeAsync(Action action, CancellationToken ct)
+        => InvokeAsync<object?>(() => { action(); return null; }, ct);
 
     private void ThrowIfDisposed()
     {
@@ -229,9 +195,10 @@ public sealed class OutlookService : IOutlookService, IDisposable
 
     private void EnsureClassicOutlookOrThrow()
     {
-        if (!_newOutlookChecked)
+        if (!_newOutlookChecked || DateTimeOffset.UtcNow >= _newOutlookCheckExpiry)
         {
             _newOutlookChecked = true;
+            _newOutlookCheckExpiry = DateTimeOffset.UtcNow.AddMinutes(5);
             if (Process.GetProcessesByName("olk").Any())
             {
                 _logger.LogWarning("New Outlook detected (olk.exe). Blocking COM interop.");
@@ -502,8 +469,6 @@ public sealed class OutlookService : IOutlookService, IDisposable
 
     private Dictionary<string, string> GetBodiesInternal(IReadOnlyList<string> entryIds, CancellationToken ct)
     {
-        EnsureClassicOutlookOrThrow();
-
         using var _ = MailTriageAssistant.Helpers.PerfScope.Start("GetBodiesInternal", _logger);
 
         var result = new Dictionary<string, string>(capacity: entryIds.Count, StringComparer.Ordinal);
@@ -625,6 +590,7 @@ public sealed class OutlookService : IOutlookService, IDisposable
         _session = null;
         _app = null;
         _newOutlookChecked = false;
+        _newOutlookCheckExpiry = default;
         _headersCache = null;
         _headersCacheUtc = default;
     }
