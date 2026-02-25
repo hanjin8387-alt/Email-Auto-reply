@@ -29,6 +29,7 @@ public sealed class OutlookService : IOutlookService, IDisposable
     private bool _disposed;
     private bool _newOutlookChecked;
     private DateTimeOffset _newOutlookCheckExpiry;
+    private bool _isLikelyNewOutlookOnly;
 
     private DateTimeOffset _headersCacheUtc;
     private List<RawEmailHeader>? _headersCache;
@@ -195,17 +196,7 @@ public sealed class OutlookService : IOutlookService, IDisposable
 
     private void EnsureClassicOutlookOrThrow()
     {
-        if (!_newOutlookChecked || DateTimeOffset.UtcNow >= _newOutlookCheckExpiry)
-        {
-            _newOutlookChecked = true;
-            _newOutlookCheckExpiry = DateTimeOffset.UtcNow.AddMinutes(5);
-            if (Process.GetProcessesByName("olk").Any())
-            {
-                _logger.LogWarning("New Outlook detected (olk.exe). Blocking COM interop.");
-                throw new NotSupportedException(
-                    "Classic Outlook이 필요합니다. New Outlook(olk.exe)은 COM Interop을 지원하지 않습니다.");
-            }
-        }
+        RefreshOutlookProcessState();
 
         if (_app is not null && _session is not null)
         {
@@ -214,24 +205,78 @@ public sealed class OutlookService : IOutlookService, IDisposable
 
         try
         {
-            _app = GetActiveOutlookApplication();
+            _app = GetActiveOrCreateOutlookApplication();
             _session = _app.Session;
+            _session ??= _app.GetNamespace("MAPI");
+            if (_session is null)
+            {
+                throw new InvalidOperationException("Outlook MAPI session was null.");
+            }
         }
         catch (COMException ex)
         {
             _logger.LogWarning("Outlook connect failed: {ExceptionType} (HResult={HResult}).", ex.GetType().Name, ex.HResult);
             _app = null;
             _session = null;
+            if (_isLikelyNewOutlookOnly)
+            {
+                throw new NotSupportedException(
+                    "Classic Outlook is required. New Outlook (olk.exe) does not support COM interop.");
+            }
+
             throw new InvalidOperationException(
-                "Outlook이 실행 중이지 않습니다. Classic Outlook을 먼저 실행해 주세요.");
+                "Outlook is not available. Please start Classic Outlook first.");
         }
         catch (Exception ex)
         {
             _logger.LogWarning("Outlook connect failed: {ExceptionType}.", ex.GetType().Name);
             _app = null;
             _session = null;
+            if (_isLikelyNewOutlookOnly)
+            {
+                throw new NotSupportedException(
+                    "Classic Outlook is required. New Outlook (olk.exe) does not support COM interop.");
+            }
+
             throw new InvalidOperationException(
-                "Outlook 연결에 실패했습니다. Classic Outlook을 확인해 주세요.");
+                "Outlook connection failed. Please verify Classic Outlook state.");
+        }
+    }
+
+    private void RefreshOutlookProcessState()
+    {
+        if (_newOutlookChecked && DateTimeOffset.UtcNow < _newOutlookCheckExpiry)
+        {
+            return;
+        }
+
+        _newOutlookChecked = true;
+        _newOutlookCheckExpiry = DateTimeOffset.UtcNow.AddMinutes(5);
+
+        var hasClassicOutlook = Process.GetProcessesByName("outlook").Any();
+        var hasNewOutlook = Process.GetProcessesByName("olk").Any();
+        _isLikelyNewOutlookOnly = hasNewOutlook && !hasClassicOutlook;
+
+        if (_isLikelyNewOutlookOnly)
+        {
+            _logger.LogWarning(
+                "New Outlook likely active without classic Outlook process (olk.exe detected, outlook.exe missing).");
+        }
+    }
+
+    private Outlook.Application GetActiveOrCreateOutlookApplication()
+    {
+        try
+        {
+            return GetActiveOutlookApplication();
+        }
+        catch (COMException ex)
+        {
+            _logger.LogInformation(
+                "GetActiveObject(Outlook.Application) failed: {ExceptionType} (HResult={HResult}). Trying new Outlook.Application.",
+                ex.GetType().Name,
+                ex.HResult);
+            return new Outlook.Application();
         }
     }
 
@@ -591,6 +636,7 @@ public sealed class OutlookService : IOutlookService, IDisposable
         _app = null;
         _newOutlookChecked = false;
         _newOutlookCheckExpiry = default;
+        _isLikelyNewOutlookOnly = false;
         _headersCache = null;
         _headersCacheUtc = default;
     }
