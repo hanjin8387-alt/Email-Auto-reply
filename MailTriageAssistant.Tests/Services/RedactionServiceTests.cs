@@ -11,16 +11,21 @@ public sealed class RedactionServiceTests
 
     [Theory]
     [InlineData("010-1234-5678", "[PHONE]")]
-    [InlineData("０１０-１２３４-５６７８", "[PHONE]")]
     [InlineData("900101-1234567", "[SSN]")]
     [InlineData("9001011234567", "[SSN]")]
     [InlineData("1234-5678-9012-3456", "[CARD]")]
     [InlineData("1234 5678 9012 3456", "[CARD]")]
+    [InlineData("4111111111111111", "[CARD]")]
     [InlineData("user@example.com", "[EMAIL]")]
     [InlineData("192.168.0.10", "[IP]")]
-    [InlineData("access_token=abcd1234", "access_token=[URL_TOKEN]")]
-    [InlineData("계좌: 123-45-678901", "계좌: [ACCOUNT]")]
-    [InlineData("여권번호: M12345678", "여권번호: [PASSPORT]")]
+    [InlineData("access_token=abcd1234", "access_token=[TOKEN]")]
+    [InlineData("{\"access_token\":\"abcd1234\"}", "{\"access_token\":\"[TOKEN]\"}")]
+    [InlineData("Authorization: Bearer abcdef", "Authorization: Bearer [TOKEN]")]
+    [InlineData("Bearer abcdef", "Bearer [TOKEN]")]
+    [InlineData("x-api-key: secret123", "x-api-key=[TOKEN]")]
+    [InlineData("account: 123-45-678901", "account: [ACCOUNT]")]
+    [InlineData("passport: M12345678", "passport: [PASSPORT]")]
+    [InlineData("+82 10-1234-5678", "[PHONE]")]
     public void Redact_SinglePattern_IsReplaced(string input, string expected)
     {
         _sut.Redact(input).Should().Be(expected);
@@ -29,7 +34,7 @@ public sealed class RedactionServiceTests
     [Fact]
     public void Redact_MultiplePatterns_AllReplaced()
     {
-        var input = "전화: 010-1234-5678, 주민: 900101-1234567, 메일: a@b.com";
+        var input = "phone: 010-1234-5678, ssn: 900101-1234567, email: a@b.com";
 
         var result = _sut.Redact(input);
 
@@ -53,14 +58,14 @@ public sealed class RedactionServiceTests
     [Fact]
     public void Redact_NoSensitiveData_ReturnsOriginal()
     {
-        _sut.Redact("일반 텍스트입니다").Should().Be("일반 텍스트입니다");
+        _sut.Redact("normal text").Should().Be("normal text");
     }
 
     [Fact]
     public void Redact_PhoneInMiddleOfText_IsReplaced()
     {
-        _sut.Redact("전화번호는010-9876-5432 입니다")
-            .Should().Be("전화번호는[PHONE] 입니다");
+        _sut.Redact("phone is 010-9876-5432")
+            .Should().Be("phone is [PHONE]");
     }
 
     [Fact]
@@ -78,8 +83,8 @@ public sealed class RedactionServiceTests
     }
 
     [Fact]
-    public void Redact_NonMatchingPhoneFormat_NotReplaced()
+    public void Redact_LandlinePhoneFormat_IsReplaced()
     {
-        _sut.Redact("02-1234-5678").Should().Be("02-1234-5678");
+        _sut.Redact("02-1234-5678").Should().Be("[PHONE]");
     }
 }

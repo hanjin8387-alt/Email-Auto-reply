@@ -13,18 +13,9 @@ public sealed class DigestServiceTests
 {
     private readonly RedactionService _redaction = new(NullLogger<RedactionService>.Instance);
 
-    private sealed class NullDialogService : IDialogService
-    {
-        public void ShowInfo(string message, string title) { }
-        public void ShowWarning(string message, string title) { }
-        public void ShowError(string message, string title) { }
-    }
-
     private DigestService CreateSut()
     {
-        // NOTE: We never call SecureCopy/OpenTeams in these tests to avoid clipboard dependencies.
-        var clipboard = new ClipboardSecurityHelper(_redaction);
-        return new DigestService(clipboard, _redaction, new NullDialogService(), NullLogger<DigestService>.Instance);
+        return new DigestService(_redaction, NullLogger<DigestService>.Instance);
     }
 
     private static AnalyzedItem Item(

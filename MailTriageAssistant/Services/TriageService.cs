@@ -1,5 +1,6 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using MailTriageAssistant.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -12,19 +13,41 @@ public sealed class TriageService : ITriageService, IDisposable
     public readonly record struct TriageResult(EmailCategory Category, int Score, string ActionHint, string[] Tags);
 
     private TriageSettings _settings;
+    private string[] _userVipSenders = Array.Empty<string>();
+    private readonly ISettingsService? _settingsService;
     private readonly ILogger<TriageService> _logger;
     private readonly IDisposable? _settingsSubscription;
 
     public TriageService(IOptionsMonitor<TriageSettings> optionsMonitor, ILogger<TriageService> logger)
+        : this(optionsMonitor, settingsService: null, logger, loadUserVipSenders: false)
+    {
+    }
+
+    public TriageService(IOptionsMonitor<TriageSettings> optionsMonitor, ISettingsService settingsService, ILogger<TriageService> logger)
+        : this(optionsMonitor, settingsService, logger, loadUserVipSenders: true)
+    {
+    }
+
+    private TriageService(
+        IOptionsMonitor<TriageSettings> optionsMonitor,
+        ISettingsService? settingsService,
+        ILogger<TriageService> logger,
+        bool loadUserVipSenders)
     {
         _logger = logger ?? NullLogger<TriageService>.Instance;
-        _settings = optionsMonitor?.CurrentValue ?? new TriageSettings();
-        _settingsSubscription = optionsMonitor?.OnChange(updated => _settings = updated);
+        _settingsService = loadUserVipSenders ? settingsService : null;
+        _userVipSenders = loadUserVipSenders ? LoadUserVipSenders() : Array.Empty<string>();
+        _settings = MergeVipSenders(CloneSettings(optionsMonitor?.CurrentValue ?? new TriageSettings()), _userVipSenders);
+        _settingsSubscription = optionsMonitor?.OnChange(updated =>
+        {
+            _settings = MergeVipSenders(CloneSettings(updated), _userVipSenders);
+        });
     }
 
     private TriageService(TriageSettings settings, ILogger<TriageService> logger)
     {
-        _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        _settings = CloneSettings(settings ?? throw new ArgumentNullException(nameof(settings)));
+        _settingsService = null;
         _logger = logger ?? NullLogger<TriageService>.Instance;
         _settingsSubscription = null;
     }
@@ -79,13 +102,13 @@ public sealed class TriageService : ITriageService, IDisposable
 
         var hint = category switch
         {
-            EmailCategory.Action => "즉시 처리 필요",
-            EmailCategory.Approval => "결재/승인 확인 필요",
-            EmailCategory.VIP => "VIP 응답 필요",
-            EmailCategory.Meeting => "일정 확인 필요",
-            EmailCategory.Newsletter => "구독 해제 고려",
-            EmailCategory.FYI => "읽기 전용",
-            _ => "검토",
+            EmailCategory.Action => "利됱떆 泥섎━ ?꾩슂",
+            EmailCategory.Approval => "寃곗옱/?뱀씤 ?뺤씤 ?꾩슂",
+            EmailCategory.VIP => "VIP ?묐떟 ?꾩슂",
+            EmailCategory.Meeting => "?쇱젙 ?뺤씤 ?꾩슂",
+            EmailCategory.Newsletter => "援щ룆 ?댁젣 怨좊젮",
+            EmailCategory.FYI => "李멸퀬 ?꾩슜",
+            _ => "Review",
         };
 
         var tags = new List<string>(capacity: 6);
@@ -106,6 +129,69 @@ public sealed class TriageService : ITriageService, IDisposable
         return result;
     }
 
+    private string[] LoadUserVipSenders()
+    {
+        if (_settingsService is null)
+        {
+            return Array.Empty<string>();
+        }
+
+        try
+        {
+            var loaded = _settingsService
+                .LoadVipSendersAsync()
+                .ConfigureAwait(false)
+                .GetAwaiter()
+                .GetResult();
+            return loaded
+                .Where(static x => !string.IsNullOrWhiteSpace(x))
+                .Select(static x => x.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("VIP sender settings load skipped: {ExceptionType}.", ex.GetType().Name);
+            return Array.Empty<string>();
+        }
+    }
+
+    private static TriageSettings MergeVipSenders(TriageSettings settings, IReadOnlyList<string> userVipSenders)
+    {
+        settings.VipSenders = (settings.VipSenders ?? Array.Empty<string>())
+            .Concat(userVipSenders ?? Array.Empty<string>())
+            .Where(static x => !string.IsNullOrWhiteSpace(x))
+            .Select(static x => x.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        return settings;
+    }
+
+    private static TriageSettings CloneSettings(TriageSettings source)
+    {
+        return new TriageSettings
+        {
+            Language = source.Language,
+            AutoRefreshIntervalMinutes = source.AutoRefreshIntervalMinutes,
+            EnableSystemTray = source.EnableSystemTray,
+            PrefetchCount = source.PrefetchCount,
+            VipSenders = (source.VipSenders ?? Array.Empty<string>()).ToArray(),
+            ActionKeywords = (source.ActionKeywords ?? Array.Empty<string>()).ToArray(),
+            ApprovalKeywords = (source.ApprovalKeywords ?? Array.Empty<string>()).ToArray(),
+            MeetingKeywords = (source.MeetingKeywords ?? Array.Empty<string>()).ToArray(),
+            NewsletterKeywords = (source.NewsletterKeywords ?? Array.Empty<string>()).ToArray(),
+            FyiKeywords = (source.FyiKeywords ?? Array.Empty<string>()).ToArray(),
+            BaseScore = source.BaseScore,
+            VipBonus = source.VipBonus,
+            ActionBonus = source.ActionBonus,
+            ApprovalBonus = source.ApprovalBonus,
+            MeetingBonus = source.MeetingBonus,
+            NewsletterPenalty = source.NewsletterPenalty,
+            UnknownSenderPenalty = source.UnknownSenderPenalty,
+        };
+    }
+
     private bool IsVipSender(string sender)
     {
         if (string.IsNullOrWhiteSpace(sender))
@@ -113,9 +199,40 @@ public sealed class TriageService : ITriageService, IDisposable
             return false;
         }
 
+        var normalizedSender = NormalizeSender(sender);
+        var senderDomain = ExtractDomain(normalizedSender);
+
         foreach (var vip in _settings.VipSenders ?? Array.Empty<string>())
         {
-            if (sender.Contains(vip, StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrWhiteSpace(vip))
+            {
+                continue;
+            }
+
+            var normalizedVip = NormalizeSender(vip);
+            if (normalizedVip.StartsWith("@", StringComparison.Ordinal))
+            {
+                var vipDomain = normalizedVip[1..];
+                if (!string.IsNullOrWhiteSpace(senderDomain)
+                    && string.Equals(senderDomain, vipDomain, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                continue;
+            }
+
+            if (normalizedVip.Contains('@', StringComparison.Ordinal))
+            {
+                if (string.Equals(normalizedSender, normalizedVip, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                continue;
+            }
+
+            if (string.Equals(sender.Trim(), normalizedVip, StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }
@@ -125,7 +242,17 @@ public sealed class TriageService : ITriageService, IDisposable
     }
 
     private static bool LooksLikeKnownSender(string sender)
-        => !string.IsNullOrWhiteSpace(sender) && sender.Contains('@', StringComparison.Ordinal);
+    {
+        var normalized = NormalizeSender(sender);
+        if (ExtractDomain(normalized).Length > 0)
+        {
+            return true;
+        }
+
+        // Exchange/X.500 sender identifiers do not contain '@' but should not be treated as unknown senders.
+        return normalized.StartsWith("/O=", StringComparison.OrdinalIgnoreCase)
+            || normalized.Contains("/CN=", StringComparison.OrdinalIgnoreCase);
+    }
 
     private static bool ContainsAny(string text, string[] keywords)
     {
@@ -136,12 +263,105 @@ public sealed class TriageService : ITriageService, IDisposable
 
         foreach (var keyword in keywords ?? Array.Empty<string>())
         {
-            if (text.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0)
+            if (ContainsKeyword(text, keyword))
             {
                 return true;
             }
         }
 
         return false;
+    }
+
+    private static bool ContainsKeyword(string text, string keyword)
+    {
+        if (string.IsNullOrWhiteSpace(text) || string.IsNullOrWhiteSpace(keyword))
+        {
+            return false;
+        }
+
+        var normalizedKeyword = keyword.Trim();
+        if (!NeedsWordBoundary(normalizedKeyword))
+        {
+            return text.IndexOf(normalizedKeyword, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        var start = 0;
+        while (start < text.Length)
+        {
+            var index = text.IndexOf(normalizedKeyword, start, StringComparison.OrdinalIgnoreCase);
+            if (index < 0)
+            {
+                return false;
+            }
+
+            var beforeValid = index == 0 || !char.IsLetterOrDigit(text[index - 1]);
+            var afterIndex = index + normalizedKeyword.Length;
+            var afterValid = afterIndex >= text.Length || !char.IsLetterOrDigit(text[afterIndex]);
+            if (beforeValid && afterValid)
+            {
+                return true;
+            }
+
+            start = index + normalizedKeyword.Length;
+        }
+
+        return false;
+    }
+
+    private static bool NeedsWordBoundary(string keyword)
+    {
+        foreach (var ch in keyword)
+        {
+            if (ch > 127)
+            {
+                return false;
+            }
+
+            if (!(char.IsLetterOrDigit(ch) || ch is '_' or '-'))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static string NormalizeSender(string sender)
+    {
+        if (string.IsNullOrWhiteSpace(sender))
+        {
+            return string.Empty;
+        }
+
+        var trimmed = sender.Trim();
+        var lt = trimmed.IndexOf('<');
+        if (lt < 0)
+        {
+            return trimmed;
+        }
+
+        var gt = trimmed.IndexOf('>', lt + 1);
+        if (gt <= lt + 1)
+        {
+            return trimmed;
+        }
+
+        return trimmed[(lt + 1)..gt].Trim();
+    }
+
+    private static string ExtractDomain(string sender)
+    {
+        if (string.IsNullOrWhiteSpace(sender))
+        {
+            return string.Empty;
+        }
+
+        var at = sender.LastIndexOf('@');
+        if (at < 0 || at == sender.Length - 1)
+        {
+            return string.Empty;
+        }
+
+        return sender[(at + 1)..].Trim();
     }
 }

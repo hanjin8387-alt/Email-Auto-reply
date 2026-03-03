@@ -48,8 +48,8 @@ public sealed class JsonSettingsService : ISettingsService
             var list = model?.VipSenders ?? Array.Empty<string>();
 
             return list
-                .Select(NormalizeEmail)
-                .Where(IsValidEmail)
+                .Select(NormalizeVipEntry)
+                .Where(IsValidVipEntry)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
                 .ToArray();
@@ -70,8 +70,8 @@ public sealed class JsonSettingsService : ISettingsService
         ct.ThrowIfCancellationRequested();
 
         var normalized = (vipSenders ?? Array.Empty<string>())
-            .Select(NormalizeEmail)
-            .Where(IsValidEmail)
+            .Select(NormalizeVipEntry)
+            .Where(IsValidVipEntry)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
             .ToArray();
@@ -105,13 +105,29 @@ public sealed class JsonSettingsService : ISettingsService
         return Path.Combine(appData, "MailTriageAssistant", "user_settings.json");
     }
 
-    private static string NormalizeEmail(string email)
-        => (email ?? string.Empty).Trim();
+    private static string NormalizeVipEntry(string value)
+        => (value ?? string.Empty).Trim();
+
+    private static bool IsValidVipEntry(string value)
+        => IsValidEmail(value) || IsValidDomainRule(value);
 
     private static bool IsValidEmail(string email)
         => !string.IsNullOrWhiteSpace(email)
            && email.Length <= MaxEmailLength
            && EmailValidator.IsValidEmail(email);
+
+    private static bool IsValidDomainRule(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || !value.StartsWith("@", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var domain = value[1..];
+        return domain.Length > 2
+            && domain.Contains('.')
+            && !domain.Contains(' ');
+    }
 
     private sealed class SettingsModel
     {

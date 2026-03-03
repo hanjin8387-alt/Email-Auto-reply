@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using FluentAssertions;
 using MailTriageAssistant.Services;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -13,12 +13,12 @@ public sealed class TemplateServiceTests
     [Fact]
     public void FillTemplate_SinglePlaceholder_Replaced()
     {
-        var body = "안녕하세요, {TargetDate}까지";
+        var body = "?덈뀞?섏꽭?? {TargetDate}源뚯?";
         var values = new Dictionary<string, string> { ["TargetDate"] = "2026-02-20" };
 
         var result = _sut.FillTemplate(body, values);
 
-        result.Should().Be("안녕하세요, 2026-02-20까지");
+        result.Should().Be("?덈뀞?섏꽭?? 2026-02-20源뚯?");
     }
 
     [Fact]
@@ -27,23 +27,23 @@ public sealed class TemplateServiceTests
         var body = "- {Date1}\n- {Date2}";
         var values = new Dictionary<string, string>
         {
-            ["Date1"] = "옵션1",
-            ["Date2"] = "옵션2",
+            ["Date1"] = "?듭뀡1",
+            ["Date2"] = "?듭뀡2",
         };
 
         var result = _sut.FillTemplate(body, values);
 
-        result.Should().Be("- 옵션1\n- 옵션2");
+        result.Should().Be("- ?듭뀡1\n- ?듭뀡2");
     }
 
     [Fact]
-    public void FillTemplate_MissingValue_ReplacedWithMissingMarker()
+    public void FillTemplate_MissingValue_ReplacedWithEmpty()
     {
-        var body = "{MissingInfo} 확인";
+        var body = "{MissingInfo} ?뺤씤";
 
         var result = _sut.FillTemplate(body, new Dictionary<string, string>());
 
-        result.Should().Be("[미입력] 확인");
+        result.Should().Be(" ?뺤씤");
     }
 
     [Fact]
@@ -65,7 +65,7 @@ public sealed class TemplateServiceTests
     [Fact]
     public void FillTemplate_NoPlaceholders_ReturnsOriginal()
     {
-        var body = "플레이스홀더가 없습니다";
+        var body = "?뚮젅?댁뒪??붽? ?놁뒿?덈떎";
 
         var result = _sut.FillTemplate(body, new Dictionary<string, string>());
 
@@ -73,11 +73,11 @@ public sealed class TemplateServiceTests
     }
 
     [Fact]
-    public void FillTemplate_WhitespaceValue_ReplacedWithMissingMarker()
+    public void FillTemplate_WhitespaceValue_ReplacedWithEmpty()
     {
         var result = _sut.FillTemplate("{Key}", new Dictionary<string, string> { ["Key"] = "  " });
 
-        result.Should().Be("[미입력]");
+        result.Should().BeEmpty();
     }
 
     [Fact]
@@ -98,11 +98,19 @@ public sealed class TemplateServiceTests
     }
 
     [Fact]
-    public void FillTemplate_UnderscoreValue_ReplacedWithMissingMarker()
+    public void FillTemplate_UnderscoreValue_ReplacedWithEmpty()
     {
         var result = _sut.FillTemplate("{Key}", new Dictionary<string, string> { ["Key"] = "___" });
 
-        result.Should().Be("[미입력]");
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void ExtractPlaceholders_SupportsHyphenAndUnicode()
+    {
+        var keys = _sut.ExtractPlaceholders("{Due-Date} / {Owner-Name} / {A_B}");
+
+        keys.Should().Contain(new[] { "Due-Date", "Owner-Name", "A_B" });
     }
 
     [Fact]
@@ -124,3 +132,5 @@ public sealed class TemplateServiceTests
         templates1[0].Title.Should().Be(templates2[0].Title);
     }
 }
+
+

@@ -13,3 +13,8 @@ dotnet-install.ps1
 
 .ai/
 publish_measure*/
+publish/
+_runcheck_*/
+codex-final-report.md
+.dotnet_cli/
+.nuget_packages/

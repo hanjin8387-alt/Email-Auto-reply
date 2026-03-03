@@ -9,13 +9,6 @@ namespace MailTriageAssistant.Tests.Security;
 
 public sealed class RedactionSecurityTests
 {
-    private sealed class NullDialogService : IDialogService
-    {
-        public void ShowInfo(string message, string title) { }
-        public void ShowWarning(string message, string title) { }
-        public void ShowError(string message, string title) { }
-    }
-
     [Fact]
     public void Redact_FullwidthDigits_CannotBypassPhoneMasking()
     {
@@ -55,7 +48,7 @@ public sealed class RedactionSecurityTests
 
         var redacted = sut.Redact("https://example.com/?access_token=abcd1234&x=1");
 
-        redacted.Should().Contain("access_token=[URL_TOKEN]");
+        redacted.Should().Contain("access_token=[TOKEN]");
         redacted.Should().NotContain("abcd1234");
     }
 
@@ -76,8 +69,7 @@ public sealed class RedactionSecurityTests
     public void Digest_EscapesMarkdownSpecialChars()
     {
         var redaction = new RedactionService(NullLogger<RedactionService>.Instance);
-        var clipboard = new ClipboardSecurityHelper(redaction);
-        var sut = new DigestService(clipboard, redaction, new NullDialogService(), NullLogger<DigestService>.Instance);
+        var sut = new DigestService(redaction, NullLogger<DigestService>.Instance);
 
         var digest = sut.GenerateDigest(new List<AnalyzedItem>
         {

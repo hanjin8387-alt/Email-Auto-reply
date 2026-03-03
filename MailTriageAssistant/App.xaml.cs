@@ -40,6 +40,7 @@ public partial class App : Application
 
     internal static bool IsExitRequested { get; private set; }
     internal static bool IsSystemTrayEnabled { get; private set; }
+    internal static IServiceProvider? Services { get; private set; }
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -64,8 +65,7 @@ public partial class App : Application
         var services = new ServiceCollection();
         ConfigureServices(services);
         _serviceProvider = services.BuildServiceProvider();
-
-        TryApplyUserVipOverrides(_serviceProvider);
+        Services = _serviceProvider;
         TryApplyLanguageResources(_serviceProvider);
 
 #if DEBUG
@@ -183,6 +183,7 @@ public partial class App : Application
 
         _serviceProvider?.Dispose();
         _serviceProvider = null;
+        Services = null;
 
         Log.CloseAndFlush();
 
@@ -454,10 +455,21 @@ public partial class App : Application
 
     private static void ConfigureServices(IServiceCollection services)
     {
-        var configuration = new ConfigurationBuilder()
-            .SetBasePath(AppContext.BaseDirectory)
-            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
-            .Build();
+        IConfiguration configuration;
+        try
+        {
+            configuration = new ConfigurationBuilder()
+                .SetBasePath(AppContext.BaseDirectory)
+                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+                .Build();
+        }
+        catch (Exception ex) when (ex is JsonException || ex is FormatException || ex is InvalidDataException)
+        {
+            // Fallback to defaults when appsettings.json is malformed.
+            configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection()
+                .Build();
+        }
 
         services.AddSingleton<IConfiguration>(configuration);
         services.Configure<TriageSettings>(configuration.GetSection(nameof(TriageSettings)));
@@ -475,6 +487,7 @@ public partial class App : Application
         services.AddSingleton<ITriageService>(sp => sp.GetRequiredService<TriageService>());
         services.AddSingleton<DigestService>();
         services.AddSingleton<IDigestService>(sp => sp.GetRequiredService<DigestService>());
+        services.AddSingleton<IDigestDeliveryService, DigestDeliveryService>();
         services.AddSingleton<TemplateService>();
         services.AddSingleton<ITemplateService>(sp => sp.GetRequiredService<TemplateService>());
 
@@ -540,36 +553,6 @@ public partial class App : Application
         dialog.ShowError(
             "예기치 않은 오류가 발생했습니다. Outlook 상태를 확인한 뒤 다시 시도해 주세요.",
             "MailTriageAssistant");
-    }
-
-    private static void TryApplyUserVipOverrides(IServiceProvider services)
-    {
-        try
-        {
-            var settings = services.GetService<ISettingsService>();
-            if (settings is null)
-            {
-                return;
-            }
-
-            var vip = Task.Run(() => settings.LoadVipSendersAsync()).GetAwaiter().GetResult();
-            if (vip.Count <= 0)
-            {
-                return;
-            }
-
-            var triageOptions = services.GetService<IOptionsMonitor<TriageSettings>>();
-            if (triageOptions?.CurrentValue is null)
-            {
-                return;
-            }
-
-            triageOptions.CurrentValue.VipSenders = vip.ToArray();
-        }
-        catch
-        {
-            // Ignore user settings load failures; app should still run with appsettings defaults.
-        }
     }
 
     private static void TryApplyLanguageResources(IServiceProvider services)

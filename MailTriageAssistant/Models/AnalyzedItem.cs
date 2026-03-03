@@ -8,6 +8,7 @@ public sealed class AnalyzedItem : INotifyPropertyChanged
 {
     private EmailCategory _category;
     private int _score;
+    private DateTime _receivedTime;
     private string _redactedSender = string.Empty;
     private string _redactedSubject = string.Empty;
     private string _redactedSummary = string.Empty;
@@ -21,7 +22,11 @@ public sealed class AnalyzedItem : INotifyPropertyChanged
     public string SenderEmail { get; init; } = string.Empty;
 
     public string Subject { get; init; } = string.Empty;
-    public DateTime ReceivedTime { get; init; }
+    public DateTime ReceivedTime
+    {
+        get => _receivedTime;
+        set => SetProperty(ref _receivedTime, value);
+    }
     public bool HasAttachments { get; init; }
 
     public string RedactedSender

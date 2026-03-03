@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
-using MailTriageAssistant.Helpers;
 using MailTriageAssistant.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -14,20 +13,14 @@ public sealed class DigestService : IDigestService
 {
     private static readonly Regex EscapeCellCharsRegex = new(@"[|\[\]()\!<>]", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
-    private readonly ClipboardSecurityHelper _clipboardHelper;
     private readonly IRedactionService _redactionService;
-    private readonly IDialogService _dialogService;
     private readonly ILogger<DigestService> _logger;
 
     public DigestService(
-        ClipboardSecurityHelper clipboardHelper,
         IRedactionService redactionService,
-        IDialogService dialogService,
         ILogger<DigestService> logger)
     {
-        _clipboardHelper = clipboardHelper ?? throw new ArgumentNullException(nameof(clipboardHelper));
         _redactionService = redactionService ?? throw new ArgumentNullException(nameof(redactionService));
-        _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         _logger = logger ?? NullLogger<DigestService>.Instance;
     }
 
@@ -36,7 +29,7 @@ public sealed class DigestService : IDigestService
         var sw = Stopwatch.StartNew();
 
         var sb = new StringBuilder();
-        sb.AppendLine("⚠️ SYSTEM PROMPT: You are my executive assistant. Analyze the following REDACTED email digest.");
+        sb.AppendLine("🧠 SYSTEM PROMPT: You are my executive assistant. Analyze the following REDACTED email digest.");
         sb.AppendLine();
         sb.AppendLine("| Priority | Sender | Subject | Summary (Redacted) |");
         sb.AppendLine("|---|---|---|---|");
@@ -51,7 +44,7 @@ public sealed class DigestService : IDigestService
 
             var sender = EscapeCell(_redactionService.Redact(senderDisplay));
             var subject = EscapeCell(_redactionService.Redact(item.Subject));
-            var summary = EscapeCell(item.RedactedSummary);
+            var summary = EscapeCell(_redactionService.Redact(item.RedactedSummary));
 
             sb.Append("| ")
               .Append(item.Score)
@@ -78,60 +71,6 @@ public sealed class DigestService : IDigestService
         sw.Stop();
         _logger.LogInformation("Digest generated: {Count} items in {ElapsedMs}ms.", items.Count, sw.ElapsedMilliseconds);
         return sb.ToString();
-    }
-
-    public void OpenTeams(string digest, string? userEmail = null)
-    {
-        _clipboardHelper.SecureCopy(digest, alreadyRedacted: true);
-
-        var email = (userEmail ?? string.Empty).Trim();
-        if (!EmailValidator.IsValidEmail(email))
-        {
-            email = string.Empty;
-        }
-        var https = string.IsNullOrWhiteSpace(email)
-            ? "https://teams.microsoft.com"
-            : $"https://teams.microsoft.com/l/chat/0/0?users={Uri.EscapeDataString(email)}";
-
-        var msteams = string.IsNullOrWhiteSpace(email)
-            ? "msteams:"
-            : $"msteams:/l/chat/0/0?users={Uri.EscapeDataString(email)}";
-
-        _logger.LogInformation("OpenTeams requested (hasUserEmail={HasUserEmail}).", !string.IsNullOrWhiteSpace(email));
-
-        if (TryOpenUrl(https))
-        {
-            _logger.LogInformation("Teams opened via https.");
-            return;
-        }
-
-        if (TryOpenUrl(msteams))
-        {
-            _logger.LogInformation("Teams opened via msteams.");
-            return;
-        }
-
-        _logger.LogWarning("Failed to open Teams via https and msteams.");
-        _dialogService.ShowInfo(
-            "Teams를 열 수 없습니다.\n요약이 클립보드에 복사되었으니 Teams에 직접 붙여넣어 주세요.",
-            "Teams 연결 실패");
-    }
-
-    private static bool TryOpenUrl(string url)
-    {
-        try
-        {
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = url,
-                UseShellExecute = true,
-            });
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
     }
 
     private static string EscapeCell(string text)

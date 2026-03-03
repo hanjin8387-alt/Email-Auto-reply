@@ -18,13 +18,19 @@ public sealed partial class RedactionService : IRedactionService
     {
         // Order matters: more specific patterns first.
         (UrlTokenRegex(), "${name}=[URL_TOKEN]"),
+        (JsonTokenRegex(), "\"${name}\":\"[TOKEN]\""),
+        (BearerTokenRegex(), "${name}: Bearer [TOKEN]"),
+        (BareBearerTokenRegex(), "Bearer [TOKEN]"),
+        (HeaderTokenRegex(), "${name}=[TOKEN]"),
         (AccountRegex(), "${label}${sep}[ACCOUNT]"),
         (PassportRegex(), "${label}${sep}[PASSPORT]"),
         (CardHyphenRegex(), "[CARD]"),
         (CardSpaceRegex(), "[CARD]"),
+        (CardCompactRegex(), "[CARD]"),
         (SsnHyphenRegex(), "[SSN]"),
         (SsnCompactRegex(), "[SSN]"),
-        (KoreanPhoneRegex(), "[PHONE]"),
+        (InternationalMobilePhoneRegex(), "[PHONE]"),
+        (PhoneRegex(), "[PHONE]"),
         (IpV4Regex(), "[IP]"),
         (EmailRegex(), "[EMAIL]"),
     };
@@ -57,6 +63,18 @@ public sealed partial class RedactionService : IRedactionService
     [GeneratedRegex(@"\b(?<name>token|access_token|id_token|refresh_token|api[-_]?key|apikey|sig|signature|secret|password|pwd|code|key)=(?<value>[^&\s]+)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex UrlTokenRegex();
 
+    [GeneratedRegex(@"(?im)""(?<name>access_token|id_token|refresh_token|token|api[-_]?key|apikey|secret|password|pwd)""\s*:\s*""(?<value>[^""\r\n]+)""", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex JsonTokenRegex();
+
+    [GeneratedRegex(@"(?im)\b(?<name>authorization)\s*:\s*bearer\s+(?<value>[^\s,;]+)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex BearerTokenRegex();
+
+    [GeneratedRegex(@"\bbearer\s+(?<value>[^\s,;]+)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex BareBearerTokenRegex();
+
+    [GeneratedRegex(@"(?im)\b(?<name>x-api-key|api[-_]?key|apikey|access_token|id_token|refresh_token|token|secret|password|pwd)\b\s*[:=]\s*[""']?(?<value>[^\s""',;]+)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex HeaderTokenRegex();
+
     [GeneratedRegex(@"\b(?<label>account|acct|iban|계좌(?:번호)?)\b(?<sep>\s*[:：]?\s*)(?<number>(?<!\d)\d{2,6}(?:[- ]\d{2,6}){1,3}(?!\d))", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex AccountRegex();
 
@@ -69,14 +87,20 @@ public sealed partial class RedactionService : IRedactionService
     [GeneratedRegex(@"(?<!\d)\d{4}(?:\s+\d{4}){3}(?!\d)", RegexOptions.CultureInvariant)]
     private static partial Regex CardSpaceRegex();
 
+    [GeneratedRegex(@"(?<!\d)\d{16}(?!\d)", RegexOptions.CultureInvariant)]
+    private static partial Regex CardCompactRegex();
+
     [GeneratedRegex(@"(?<!\d)\d{6}-\d{7}(?!\d)", RegexOptions.CultureInvariant)]
     private static partial Regex SsnHyphenRegex();
 
     [GeneratedRegex(@"(?<!\d)\d{6}[1-8]\d{6}(?!\d)", RegexOptions.CultureInvariant)]
     private static partial Regex SsnCompactRegex();
 
-    [GeneratedRegex(@"(?<!\d)010-\d{4}-\d{4}(?!\d)", RegexOptions.CultureInvariant)]
-    private static partial Regex KoreanPhoneRegex();
+    [GeneratedRegex(@"(?<!\d)(?:\+?82[-\s]?)?(?:0?10)(?:[-\s]?\d{4})(?:[-\s]?\d{4})(?!\d)", RegexOptions.CultureInvariant)]
+    private static partial Regex InternationalMobilePhoneRegex();
+
+    [GeneratedRegex(@"(?<!\d)(?:0\d{1,2})(?:[-\s]?\d{3,4})(?:[-\s]?\d{4})(?!\d)", RegexOptions.CultureInvariant)]
+    private static partial Regex PhoneRegex();
 
     [GeneratedRegex(@"(?<!\d)(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}(?!\d)", RegexOptions.CultureInvariant)]
     private static partial Regex IpV4Regex();

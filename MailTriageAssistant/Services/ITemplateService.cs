@@ -8,5 +8,6 @@ public interface ITemplateService
     List<ReplyTemplate> GetTemplates();
 
     string FillTemplate(string templateBody, IReadOnlyDictionary<string, string> values);
-}
 
+    IReadOnlyList<string> ExtractPlaceholders(string templateBody);
+}

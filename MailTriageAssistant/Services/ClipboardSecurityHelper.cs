@@ -9,7 +9,7 @@ namespace MailTriageAssistant.Services;
 
 public sealed class ClipboardSecurityHelper : IDisposable
 {
-    private readonly RedactionService _redactionService;
+    private readonly IRedactionService _redactionService;
     private readonly ILogger<ClipboardSecurityHelper> _logger;
     private DispatcherTimer? _clearTimer;
     private string? _copiedContent;
@@ -17,28 +17,26 @@ public sealed class ClipboardSecurityHelper : IDisposable
     private bool _hasCopiedSequenceNumber;
     private bool _disposed;
 
-    public ClipboardSecurityHelper(RedactionService redactionService)
+    public ClipboardSecurityHelper(IRedactionService redactionService)
         : this(redactionService, NullLogger<ClipboardSecurityHelper>.Instance)
     {
     }
 
-    public ClipboardSecurityHelper(RedactionService redactionService, ILogger<ClipboardSecurityHelper> logger)
+    public ClipboardSecurityHelper(IRedactionService redactionService, ILogger<ClipboardSecurityHelper> logger)
     {
         _redactionService = redactionService ?? throw new ArgumentNullException(nameof(redactionService));
         _logger = logger ?? NullLogger<ClipboardSecurityHelper>.Instance;
     }
 
-    public void SecureCopy(string text, bool alreadyRedacted = false)
+    public void SecureCopy(string text)
     {
         if (_disposed)
         {
             throw new ObjectDisposedException(nameof(ClipboardSecurityHelper));
         }
 
-        // Enforce redaction before anything leaves the app via the clipboard, unless the input is explicitly pre-redacted.
-        var content = alreadyRedacted
-            ? (text ?? string.Empty)
-            : _redactionService.Redact(text ?? string.Empty);
+        // Enforce redaction before anything leaves the app via the clipboard.
+        var content = _redactionService.Redact(text ?? string.Empty);
 
         Application.Current.Dispatcher.Invoke(() =>
         {

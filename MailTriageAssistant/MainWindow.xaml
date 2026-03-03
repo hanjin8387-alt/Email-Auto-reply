@@ -14,7 +14,6 @@
     <Window.Resources>
         <helpers:ScoreToColorConverter x:Key="ScoreToColor" />
         <helpers:ScoreToLabelConverter x:Key="ScoreToLabel" />
-        <helpers:RedactionConverter x:Key="Redaction" />
         <helpers:CategoryToIconConverter x:Key="CategoryToIcon" />
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
     </Window.Resources>
@@ -242,9 +241,9 @@
                 </Grid.RowDefinitions>
 
                 <StackPanel Grid.Row="0">
-                    <TextBlock Text="{Binding SelectedEmail.Subject, Converter={StaticResource Redaction}}" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding SelectedEmail.RedactedSubject}" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
                     <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                        <TextBlock Text="{Binding SelectedEmail.Sender, Converter={StaticResource Redaction}}"
+                        <TextBlock Text="{Binding SelectedEmail.RedactedSender}"
                                    Foreground="{StaticResource Brush.TextSecondary}"
                                    TextTrimming="CharacterEllipsis"
                                    TextWrapping="NoWrap" />
@@ -319,6 +318,31 @@
                                   AutomationProperties.Name="{DynamicResource Str.Automation.ReplyTemplateSelect}"
                                   ToolTip="{DynamicResource Str.Tooltip.ReplyTemplateSelect}"
                                   TabIndex="5" />
+                        <ItemsControl ItemsSource="{Binding TemplateFieldInputs}" Margin="0,8,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,0,0,6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="120" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0"
+                                                    Orientation="Horizontal"
+                                                    VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Label}"
+                                                       Foreground="{StaticResource Brush.TextSecondary}" />
+                                            <TextBlock Text=" *"
+                                                       Foreground="{StaticResource Brush.TextSecondary}"
+                                                       Visibility="{Binding IsRequired, Converter={StaticResource BoolToVis}}" />
+                                        </StackPanel>
+                                        <TextBox Grid.Column="1"
+                                                 Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
+                                                 MinWidth="160"
+                                                 ToolTip="{Binding Placeholder}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </StackPanel>
 
                     <Button Grid.Column="1"

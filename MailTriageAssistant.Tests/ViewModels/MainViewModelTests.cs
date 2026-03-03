@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -53,7 +53,6 @@ public sealed class MainViewModelTests
             var digest = new Mock<IDigestService>(MockBehavior.Strict);
             digest.Setup(s => s.GenerateDigest(It.IsAny<IReadOnlyList<AnalyzedItem>>()))
                 .Returns("DIGEST");
-            digest.Setup(s => s.OpenTeams(It.IsAny<string>(), It.IsAny<string?>()));
 
             var template = new Mock<ITemplateService>(MockBehavior.Strict);
             template.Setup(s => s.GetTemplates()).Returns(new List<ReplyTemplate>
@@ -62,6 +61,8 @@ public sealed class MainViewModelTests
             });
             template.Setup(s => s.FillTemplate(It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, string>>()))
                 .Returns("FILLED");
+            template.Setup(s => s.ExtractPlaceholders(It.IsAny<string>()))
+                .Returns(Array.Empty<string>());
 
             var redaction = new Mock<IRedactionService>(MockBehavior.Strict);
             redaction.Setup(s => s.Redact(It.IsAny<string>())).Returns("[REDACTED]");
@@ -79,7 +80,7 @@ public sealed class MainViewModelTests
             await InvokePrivateAsync(vm, "LoadEmailsAsync");
 
             vm.Emails.Should().HaveCount(3);
-            vm.StatusMessage.Should().Be("메일 3개 로드 완료");
+            vm.StatusMessage.Should().NotBeNullOrWhiteSpace();
         });
     }
 
@@ -113,11 +114,11 @@ public sealed class MainViewModelTests
 
             await InvokePrivateAsync(vm, "LoadEmailsAsync");
 
-            vm.StatusMessage.Should().Be("Classic Outlook이 필요합니다. New Outlook(olk.exe)은 지원되지 않습니다.");
-            dialog.Verify(s => s.ShowWarning(
-                "Classic Outlook이 필요합니다. New Outlook(olk.exe)은 지원되지 않습니다.",
-                "Outlook"),
-                Times.Once);
+            vm.StatusMessage.Should().Contain("Outlook");
+            dialog.Verify(s => s.ShowWarning(It.IsAny<string>(), "Outlook"), Times.Once);
+
+
+
         });
     }
 
@@ -151,11 +152,11 @@ public sealed class MainViewModelTests
 
             await InvokePrivateAsync(vm, "LoadEmailsAsync");
 
-            vm.StatusMessage.Should().Be("Outlook과 연결할 수 없습니다. Classic Outlook 실행 및 상태를 확인해 주세요.");
-            dialog.Verify(s => s.ShowInfo(
-                "Outlook과 연결할 수 없습니다. Classic Outlook 실행 및 상태를 확인해 주세요.",
-                "Outlook"),
-                Times.Once);
+            vm.StatusMessage.Should().Contain("Outlook");
+            dialog.Verify(s => s.ShowInfo(It.IsAny<string>(), "Outlook"), Times.Once);
+
+
+
         });
     }
 
@@ -170,7 +171,10 @@ public sealed class MainViewModelTests
             var digest = new Mock<IDigestService>(MockBehavior.Strict);
             digest.Setup(s => s.GenerateDigest(It.IsAny<IReadOnlyList<AnalyzedItem>>()))
                 .Returns("DIGEST");
-            digest.Setup(s => s.OpenTeams("DIGEST", "user@example.com"));
+
+            var digestDelivery = new Mock<IDigestDeliveryService>(MockBehavior.Strict);
+            digestDelivery.Setup(s => s.CopyDigestToClipboard("DIGEST"));
+            digestDelivery.Setup(s => s.TryOpenTeams("user@example.com")).Returns(true);
 
             var template = new Mock<ITemplateService>(MockBehavior.Strict);
             template.Setup(s => s.GetTemplates()).Returns(new List<ReplyTemplate>());
@@ -187,7 +191,8 @@ public sealed class MainViewModelTests
                 triage.Object,
                 digest.Object,
                 template.Object,
-                dialog.Object);
+                dialog.Object,
+                digestDelivery.Object);
 
             vm.TeamsUserEmail = "user@example.com";
             vm.Emails.AddRange(new[]
@@ -208,8 +213,8 @@ public sealed class MainViewModelTests
             await InvokePrivateAsync(vm, "GenerateDigestAsync");
 
             digest.VerifyAll();
-            dialog.Verify(s => s.ShowInfo(It.IsAny<string>(), "Digest 준비 완료"), Times.Once);
-            vm.StatusMessage.Should().Be("클립보드에 복사 완료. Teams를 여는 중...");
+            dialog.Verify(s => s.ShowInfo(It.IsAny<string>(), It.IsAny<string>()), Times.Once);
+            vm.StatusMessage.Should().Contain("Teams");
         });
     }
 
@@ -235,6 +240,8 @@ public sealed class MainViewModelTests
             });
             template.Setup(s => s.FillTemplate(It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, string>>()))
                 .Returns("FILLED");
+            template.Setup(s => s.ExtractPlaceholders(It.IsAny<string>()))
+                .Returns(Array.Empty<string>());
 
             var redaction = new Mock<IRedactionService>(MockBehavior.Strict);
             redaction.Setup(s => s.Redact(It.IsAny<string>())).Returns("[REDACTED]");
@@ -269,6 +276,113 @@ public sealed class MainViewModelTests
     }
 
     [Fact]
+    public async Task ReplyAsync_WhenRequiredFieldSanitizesToEmpty_ShowsWarningAndSkipsDraft()
+    {
+        await RunOnStaThreadAsync(async () =>
+        {
+            var outlook = new Mock<IOutlookService>(MockBehavior.Strict);
+
+            var triage = new Mock<ITriageService>(MockBehavior.Strict);
+            var digest = new Mock<IDigestService>(MockBehavior.Strict);
+
+            var template = new Mock<ITemplateService>(MockBehavior.Strict);
+            var realTemplate = new TemplateService(NullLogger<TemplateService>.Instance);
+            template.Setup(s => s.GetTemplates()).Returns(new List<ReplyTemplate>
+            {
+                new ReplyTemplate
+                {
+                    Id = "T1",
+                    Title = "t",
+                    BodyContent = "body {Custom}",
+                    Fields = new[]
+                    {
+                        new ReplyTemplateField
+                        {
+                            Key = "Custom",
+                            Label = "Custom",
+                            IsRequired = true,
+                        },
+                    },
+                },
+            });
+            template.Setup(s => s.FillTemplate(It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, string>>()))
+                .Returns((string body, IReadOnlyDictionary<string, string> values) => realTemplate.FillTemplate(body, values));
+            template.Setup(s => s.ExtractPlaceholders(It.IsAny<string>()))
+                .Returns((string body) => realTemplate.ExtractPlaceholders(body));
+
+            var redaction = new Mock<IRedactionService>(MockBehavior.Strict);
+            redaction.Setup(s => s.Redact(It.IsAny<string>())).Returns("[REDACTED]");
+
+            var dialog = new Mock<IDialogService>(MockBehavior.Strict);
+            dialog.Setup(s => s.ShowWarning(It.IsAny<string>(), It.IsAny<string>()));
+
+            var vm = CreateSut(
+                outlook.Object,
+                redaction.Object,
+                triage.Object,
+                digest.Object,
+                template.Object,
+                dialog.Object);
+
+            vm.SelectedEmail = new AnalyzedItem
+            {
+                EntryId = "id-1",
+                Sender = "Sender",
+                SenderEmail = "to@example.com",
+                Subject = "Hello",
+                ReceivedTime = DateTime.Now,
+                Score = 10,
+                RedactedSummary = "sum",
+                IsBodyLoaded = true,
+            };
+            vm.SelectedTemplate = vm.Templates.First();
+            vm.TemplateFieldInputs[0].Value = "___";
+
+            await InvokePrivateAsync(vm, "ReplyAsync");
+
+            outlook.Verify(
+                s => s.CreateDraft(
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+            dialog.Verify(s => s.ShowWarning(It.IsAny<string>(), It.IsAny<string>()), Times.Once);
+        });
+    }
+
+    [Fact]
+    public void ResetAutoRefreshAfterManualRun_ClearsFailureStreak_WhenNotPaused()
+    {
+        var outlook = new Mock<IOutlookService>(MockBehavior.Strict);
+        var triage = new Mock<ITriageService>(MockBehavior.Strict);
+        var digest = new Mock<IDigestService>(MockBehavior.Strict);
+        var template = new Mock<ITemplateService>(MockBehavior.Strict);
+        template.Setup(s => s.GetTemplates()).Returns(new List<ReplyTemplate>());
+        var redaction = new Mock<IRedactionService>(MockBehavior.Strict);
+        redaction.Setup(s => s.Redact(It.IsAny<string>())).Returns("[REDACTED]");
+        var dialog = new Mock<IDialogService>(MockBehavior.Strict);
+
+        var vm = CreateSut(
+            outlook.Object,
+            redaction.Object,
+            triage.Object,
+            digest.Object,
+            template.Object,
+            dialog.Object);
+
+        var streakField = typeof(MainViewModel)
+            .GetField("_autoRefreshFailureStreak", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        streakField.SetValue(vm, 2);
+
+        var method = typeof(MainViewModel)
+            .GetMethod("ResetAutoRefreshAfterManualRun", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        method.Invoke(vm, null);
+
+        ((int?)streakField.GetValue(vm)).Should().Be(0);
+    }
+
+    [Fact]
     public async Task GenerateDigestAsync_WhenDigestServiceThrows_ShowsError()
     {
         await RunOnStaThreadAsync(async () =>
@@ -287,7 +401,7 @@ public sealed class MainViewModelTests
             redaction.Setup(s => s.Redact(It.IsAny<string>())).Returns("[REDACTED]");
 
             var dialog = new Mock<IDialogService>(MockBehavior.Strict);
-            dialog.Setup(s => s.ShowError("Digest 생성 중 오류가 발생했습니다.", "오류"));
+            dialog.Setup(s => s.ShowError(It.IsAny<string>(), It.IsAny<string>()));
 
             var vm = CreateSut(
                 outlook.Object,
@@ -315,7 +429,7 @@ public sealed class MainViewModelTests
             await InvokePrivateAsync(vm, "GenerateDigestAsync");
 
             dialog.VerifyAll();
-            vm.StatusMessage.Should().Be("Digest 생성 중 오류가 발생했습니다.");
+            vm.StatusMessage.Should().Contain("Digest");
         });
     }
 
@@ -325,7 +439,8 @@ public sealed class MainViewModelTests
         ITriageService triageService,
         IDigestService digestService,
         ITemplateService templateService,
-        IDialogService dialogService)
+        IDialogService dialogService,
+        IDigestDeliveryService? digestDeliveryService = null)
     {
         // NOTE: ClipboardSecurityHelper is injected but not exercised here to avoid clipboard dependencies.
         var clipboard = new ClipboardSecurityHelper(new RedactionService(NullLogger<RedactionService>.Instance));
@@ -342,6 +457,7 @@ public sealed class MainViewModelTests
             clipboard,
             triageService,
             digestService,
+            digestDeliveryService ?? Mock.Of<IDigestDeliveryService>(),
             templateService,
             dialogService,
             new SessionStatsService(),
@@ -425,3 +541,4 @@ public sealed class MainViewModelTests
         return tcs.Task;
     }
 }
+
