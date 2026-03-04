@@ -12,6 +12,12 @@ public sealed class TriageSettings
 
     public int PrefetchCount { get; set; } = 10;
 
+    public int DigestTopCount { get; set; } = 10;
+
+    public int ClipboardAutoClearSeconds { get; set; } = 30;
+
+    public int AutoRefreshFailurePauseThreshold { get; set; } = 3;
+
     public string[] VipSenders { get; set; } = new[]
     {
         "ceo@company.com",

@@ -11,18 +11,18 @@ public sealed class CategoryToIconConverter : IValueConverter
     {
         if (!TryGetCategory(value, out var category))
         {
-            return "•";
+            return "?";
         }
 
         return category switch
         {
             EmailCategory.Action => "!",
-            EmailCategory.Approval => "✓",
-            EmailCategory.VIP => "★",
-            EmailCategory.Meeting => "⌚",
-            EmailCategory.Newsletter => "✉",
+            EmailCategory.Approval => "OK",
+            EmailCategory.VIP => "VIP",
+            EmailCategory.Meeting => "M",
+            EmailCategory.Newsletter => "N",
             EmailCategory.FYI => "i",
-            _ => "•",
+            _ => "?",
         };
     }
 
@@ -47,4 +47,3 @@ public sealed class CategoryToIconConverter : IValueConverter
         return false;
     }
 }
-

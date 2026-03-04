@@ -5,52 +5,112 @@
 
     <sys:String x:Key="Str.Button.LoadEmails">메일 분류 실행</sys:String>
     <sys:String x:Key="Str.Button.GenerateDigestTeams">Digest 복사 + Teams 열기</sys:String>
+    <sys:String x:Key="Str.Button.OpenInOutlook">Outlook에서 열기</sys:String>
+    <sys:String x:Key="Str.Button.CopyForCopilot">Copilot용 복사</sys:String>
+    <sys:String x:Key="Str.Button.TemplateReply">템플릿 답장</sys:String>
+    <sys:String x:Key="Str.Button.DigestCopyTeams">Digest 복사 + Teams</sys:String>
 
     <sys:String x:Key="Str.Label.TeamsUserEmail">Teams 사용자 이메일:</sys:String>
+    <sys:String x:Key="Str.Label.RedactedSummary">마스킹 본문 요약</sys:String>
+    <sys:String x:Key="Str.Label.ReplyTemplate">답장 템플릿</sys:String>
 
     <sys:String x:Key="Str.Tooltip.LoadEmails">Outlook Inbox에서 최근 메일을 불러와 우선순위를 계산합니다.</sys:String>
-    <sys:String x:Key="Str.Tooltip.GenerateDigestTeams">우선순위 상위 메일 Digest를 복사하고 Teams를 엽니다.</sys:String>
-    <sys:String x:Key="Str.Tooltip.TeamsUserEmail">Teams에서 채팅을 열 사용자 이메일 주소 (옵션)</sys:String>
+    <sys:String x:Key="Str.Tooltip.GenerateDigestTeams">상위 우선순위 메일 Digest를 복사하고 Teams를 엽니다.</sys:String>
+    <sys:String x:Key="Str.Tooltip.TeamsUserEmail">Teams 대화 열기에 사용할 이메일(선택)</sys:String>
+    <sys:String x:Key="Str.Tooltip.CategoryFilter">선택한 카테고리 메일만 표시합니다.</sys:String>
+    <sys:String x:Key="Str.Tooltip.EmailList">우선순위 기준으로 정렬된 메일 목록</sys:String>
+    <sys:String x:Key="Str.Tooltip.Attachment">첨부 파일 있음</sys:String>
+    <sys:String x:Key="Str.Tooltip.ReplyTemplateSelect">선택한 템플릿으로 Outlook 답장 초안을 만듭니다.</sys:String>
+    <sys:String x:Key="Str.Tooltip.OpenInOutlook">선택한 메일을 Classic Outlook에서 엽니다.</sys:String>
+    <sys:String x:Key="Str.Tooltip.CopyForCopilot">선택한 마스킹 요약을 클립보드에 복사합니다. (30초 후 자동 삭제)</sys:String>
+    <sys:String x:Key="Str.Tooltip.TemplateReply">선택한 템플릿으로 Outlook 답장 초안을 만듭니다.</sys:String>
+    <sys:String x:Key="Str.Tooltip.DigestCopyTeams">Digest를 복사하고 Teams를 엽니다.</sys:String>
 
     <sys:String x:Key="Str.Automation.LoadEmails">메일 분류 실행</sys:String>
     <sys:String x:Key="Str.Automation.GenerateDigestTeams">Digest 복사 및 Teams 열기</sys:String>
     <sys:String x:Key="Str.Automation.TeamsUserEmailInput">Teams 사용자 이메일 입력</sys:String>
+    <sys:String x:Key="Str.Automation.CategoryFilter">카테고리 필터</sys:String>
+    <sys:String x:Key="Str.Automation.EmailList">메일 목록</sys:String>
+    <sys:String x:Key="Str.Automation.ReplyTemplateSelect">답장 템플릿 선택</sys:String>
 
     <sys:String x:Key="Str.Header.PriorityEmails">우선순위 메일</sys:String>
-    <sys:String x:Key="Str.Automation.CategoryFilter">카테고리 필터</sys:String>
-    <sys:String x:Key="Str.Tooltip.CategoryFilter">선택한 카테고리만 메일 목록에 표시합니다.</sys:String>
-    <sys:String x:Key="Str.Automation.EmailList">메일 목록</sys:String>
-    <sys:String x:Key="Str.Tooltip.EmailList">우선순위 기준으로 정렬된 메일 목록</sys:String>
-
-    <sys:String x:Key="Str.Text.AttachmentMarker">  📎</sys:String>
-    <sys:String x:Key="Str.Tooltip.Attachment">첨부파일 있음</sys:String>
+    <sys:String x:Key="Str.Text.AttachmentMarker"> [첨부]</sys:String>
 
     <sys:String x:Key="Str.Empty.EmailList.Title">표시할 메일이 없습니다</sys:String>
-    <sys:String x:Key="Str.Empty.EmailList.Body">상단의 '메일 분류 실행'을 눌러 Outlook에서 불러오세요.</sys:String>
-
-    <sys:String x:Key="Str.Label.RedactedSummary">마스킹된 본문 요약</sys:String>
-
-    <sys:String x:Key="Str.Label.ReplyTemplate">답장 템플릿</sys:String>
-    <sys:String x:Key="Str.Automation.ReplyTemplateSelect">답장 템플릿 선택</sys:String>
-    <sys:String x:Key="Str.Tooltip.ReplyTemplateSelect">선택한 템플릿으로 Outlook 답장 초안을 생성합니다.</sys:String>
-
-    <sys:String x:Key="Str.Button.OpenInOutlook">Outlook에서 열기</sys:String>
-    <sys:String x:Key="Str.Tooltip.OpenInOutlook">선택한 메일을 Classic Outlook에서 엽니다.</sys:String>
-
-    <sys:String x:Key="Str.Button.CopyForCopilot">Copilot용 복사</sys:String>
-    <sys:String x:Key="Str.Tooltip.CopyForCopilot">선택한 메일의 마스킹된 요약을 클립보드에 복사합니다. (30초 후 자동 삭제)</sys:String>
-
-    <sys:String x:Key="Str.Button.TemplateReply">템플릿 답장</sys:String>
-    <sys:String x:Key="Str.Tooltip.TemplateReply">선택한 템플릿으로 Outlook 답장 초안을 생성합니다.</sys:String>
-
-    <sys:String x:Key="Str.Button.DigestCopyTeams">Digest 복사 + Teams</sys:String>
-    <sys:String x:Key="Str.Tooltip.DigestCopyTeams">우선순위 상위 메일 Digest를 복사하고 Teams를 엽니다.</sys:String>
-
+    <sys:String x:Key="Str.Empty.EmailList.Body">'메일 분류 실행' 버튼을 눌러 Outlook 메일을 불러오세요.</sys:String>
     <sys:String x:Key="Str.Empty.Selection.Title">메일을 선택하세요</sys:String>
-    <sys:String x:Key="Str.Empty.Selection.Body">왼쪽 목록에서 메일을 선택하면 마스킹된 요약이 표시됩니다.</sys:String>
+    <sys:String x:Key="Str.Empty.Selection.Body">왼쪽 목록에서 메일을 선택하면 마스킹 요약을 표시합니다.</sys:String>
 
     <sys:String x:Key="Str.Tray.StatusIdle">상태: 대기</sys:String>
     <sys:String x:Key="Str.Tray.StatusProcessing">상태: 처리 중</sys:String>
     <sys:String x:Key="Str.Tray.OpenDashboard">대시보드 열기</sys:String>
     <sys:String x:Key="Str.Tray.Exit">종료</sys:String>
+
+    <sys:String x:Key="Str.Filter.Category.All">전체</sys:String>
+    <sys:String x:Key="Str.Filter.Category.Action">긴급(Action)</sys:String>
+    <sys:String x:Key="Str.Filter.Category.Approval">결재(Approval)</sys:String>
+    <sys:String x:Key="Str.Filter.Category.Vip">VIP</sys:String>
+    <sys:String x:Key="Str.Filter.Category.Meeting">미팅(Meeting)</sys:String>
+    <sys:String x:Key="Str.Filter.Category.Newsletter">뉴스레터</sys:String>
+    <sys:String x:Key="Str.Filter.Category.Fyi">참고(FYI)</sys:String>
+    <sys:String x:Key="Str.Filter.Category.Other">기타</sys:String>
+
+    <sys:String x:Key="Str.ScoreLabel.High">긴급</sys:String>
+    <sys:String x:Key="Str.ScoreLabel.Medium">중요</sys:String>
+    <sys:String x:Key="Str.ScoreLabel.Normal">보통</sys:String>
+    <sys:String x:Key="Str.ScoreLabel.Low">참고</sys:String>
+
+    <sys:String x:Key="Str.ActionHint.Action">즉시 처리 필요</sys:String>
+    <sys:String x:Key="Str.ActionHint.Approval">결재/승인 확인 필요</sys:String>
+    <sys:String x:Key="Str.ActionHint.Vip">VIP 응답 필요</sys:String>
+    <sys:String x:Key="Str.ActionHint.Meeting">일정 확인 필요</sys:String>
+    <sys:String x:Key="Str.ActionHint.Newsletter">구독 해지 고려</sys:String>
+    <sys:String x:Key="Str.ActionHint.Fyi">참고용</sys:String>
+    <sys:String x:Key="Str.ActionHint.Other">검토</sys:String>
+
+    <sys:String x:Key="Str.Digest.Header.Priority">우선순위</sys:String>
+    <sys:String x:Key="Str.Digest.Header.Sender">발신자</sys:String>
+    <sys:String x:Key="Str.Digest.Header.Subject">제목</sys:String>
+    <sys:String x:Key="Str.Digest.Header.Summary">요약(마스킹)</sys:String>
+
+    <sys:String x:Key="Str.Status.Idle">대기 중</sys:String>
+    <sys:String x:Key="Str.Status.LoadingHeaders">Outlook에서 메일 헤더를 불러오는 중입니다.</sys:String>
+    <sys:String x:Key="Str.Status.LoadCompletedCount">메일 {0}건 로드 완료</sys:String>
+    <sys:String x:Key="Str.Status.NoEmails">표시할 메일이 없습니다.</sys:String>
+    <sys:String x:Key="Str.Status.LoadCanceled">메일 로드가 취소되었습니다.</sys:String>
+    <sys:String x:Key="Str.Status.LoadFailed">메일을 불러오지 못했습니다.</sys:String>
+    <sys:String x:Key="Str.Status.LoadingBody">본문을 불러오는 중입니다.</sys:String>
+    <sys:String x:Key="Str.Status.BodyLoaded">본문 로드 완료</sys:String>
+    <sys:String x:Key="Str.Status.BodyLoadFailed">본문을 불러오지 못했습니다.</sys:String>
+    <sys:String x:Key="Str.Status.BodyLoadPendingSummary">선택하면 본문을 로드하고 마스킹 요약을 표시합니다.</sys:String>
+    <sys:String x:Key="Str.Status.EmptyBodySummary">(본문이 비어 있습니다.)</sys:String>
+    <sys:String x:Key="Str.Status.DigestGenerating">Digest 생성 중입니다.</sys:String>
+    <sys:String x:Key="Str.Status.DigestTeamsOpened">클립보드 복사 완료. Teams를 여는 중입니다.</sys:String>
+    <sys:String x:Key="Str.Status.DigestTeamsFailed">클립보드 복사 완료. Teams 실행에 실패했습니다.</sys:String>
+    <sys:String x:Key="Str.Status.DigestCanceled">Digest 생성이 취소되었습니다.</sys:String>
+    <sys:String x:Key="Str.Status.DigestFailed">Digest 생성에 실패했습니다.</sys:String>
+    <sys:String x:Key="Str.Status.CopiedSummary">마스킹 요약을 클립보드에 복사했습니다. (30초 후 자동 삭제)</sys:String>
+    <sys:String x:Key="Str.Status.CopyFailed">클립보드 복사에 실패했습니다.</sys:String>
+    <sys:String x:Key="Str.Status.OpenedInOutlook">Outlook에서 메일을 열었습니다.</sys:String>
+    <sys:String x:Key="Str.Status.OpenInOutlookFailed">Outlook에서 메일을 열지 못했습니다.</sys:String>
+    <sys:String x:Key="Str.Status.ReplyDraftCreated">Outlook 답장 초안을 만들었습니다.</sys:String>
+    <sys:String x:Key="Str.Status.ReplyDraftFailed">답장 초안 생성에 실패했습니다.</sys:String>
+    <sys:String x:Key="Str.Status.AutoRefreshPaused">자동 분류: 일시 중지</sys:String>
+    <sys:String x:Key="Str.Status.AutoRefreshSoon">다음 분류: 곧</sys:String>
+    <sys:String x:Key="Str.Status.AutoRefreshNextInMinutes">다음 분류: {0}분 후</sys:String>
+    <sys:String x:Key="Str.Status.AutoRefreshPausedByFailures">자동 분류가 반복 실패로 일시 중지되었습니다.</sys:String>
+
+    <sys:String x:Key="Str.Dialog.ErrorTitle">오류</sys:String>
+    <sys:String x:Key="Str.Dialog.OutlookTitle">Outlook</sys:String>
+    <sys:String x:Key="Str.Dialog.AutoRefreshTitle">자동 분류</sys:String>
+    <sys:String x:Key="Str.Dialog.DigestReadyTitle">Digest 준비 완료</sys:String>
+    <sys:String x:Key="Str.Dialog.TemplateReplyTitle">템플릿 답장</sys:String>
+    <sys:String x:Key="Str.Dialog.OutlookNotSupportedMessage">Classic Outlook이 필요합니다. New Outlook은 지원하지 않습니다.</sys:String>
+    <sys:String x:Key="Str.Dialog.OutlookUnavailableMessage">Outlook 연결이 불가능합니다. Classic Outlook 실행 상태를 확인하세요.</sys:String>
+    <sys:String x:Key="Str.Dialog.DigestTeamsOpenedMessage">클립보드에 Digest를 복사했고 Teams를 여는 중입니다.</sys:String>
+    <sys:String x:Key="Str.Dialog.DigestTeamsFailedMessage">클립보드에 Digest를 복사했습니다. Teams를 수동으로 열어주세요.</sys:String>
+    <sys:String x:Key="Str.Dialog.ReplyMissingSenderMessage">수신자 이메일 주소를 확인할 수 없습니다.</sys:String>
+    <sys:String x:Key="Str.Dialog.TemplateMissingInputMessage">필수 템플릿 입력값이 부족합니다.</sys:String>
+    <sys:String x:Key="Str.Dialog.TemplateUnresolvedPlaceholderMessage">템플릿 치환이 완료되지 않았습니다.</sys:String>
+    <sys:String x:Key="Str.Dialog.UnhandledExceptionMessage">예기치 못한 오류가 발생했습니다. Outlook 상태를 확인 후 다시 시도하세요.</sys:String>
 </ResourceDictionary>

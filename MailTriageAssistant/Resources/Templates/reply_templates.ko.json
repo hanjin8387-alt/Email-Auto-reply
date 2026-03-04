@@ -1,0 +1,113 @@
+﻿{
+  "templates": [
+    {
+      "id": "TMP_01",
+      "title": "수신 확인 (Acknowledge)",
+      "bodyContent": "안녕하세요.\n\n메일 잘 받았습니다. 내용을 확인하여 {TargetDate}까지 회신드리겠습니다.\n\n감사합니다.",
+      "fields": [
+        {
+          "key": "TargetDate",
+          "label": "회신 예정일",
+          "isRequired": true,
+          "placeholder": "예: 2026-03-05"
+        }
+      ]
+    },
+    {
+      "id": "TMP_02",
+      "title": "추가 정보 요청 (Request Info)",
+      "bodyContent": "안녕하세요.\n\n검토를 위해 아래 정보가 추가로 필요합니다.\n- {MissingInfo}\n\n확인 부탁드립니다.\n\n감사합니다.",
+      "fields": [
+        {
+          "key": "MissingInfo",
+          "label": "요청 정보",
+          "isRequired": true,
+          "placeholder": "예: 계약서 파일, 담당자 연락처"
+        }
+      ]
+    },
+    {
+      "id": "TMP_03",
+      "title": "일정 제안 (Propose Time)",
+      "bodyContent": "안녕하세요.\n\n요청 주신 미팅 가능 시간입니다. 아래 후보 중 편한 시간을 알려주세요.\n- 옵션1: {Date1}\n- 옵션2: {Date2}\n\n감사합니다.",
+      "fields": [
+        {
+          "key": "Date1",
+          "label": "옵션 1",
+          "isRequired": true,
+          "placeholder": "예: 2026-03-04 10:00"
+        },
+        {
+          "key": "Date2",
+          "label": "옵션 2",
+          "isRequired": true,
+          "placeholder": "예: 2026-03-04 15:00"
+        }
+      ]
+    },
+    {
+      "id": "TMP_04",
+      "title": "지연 안내 (Delay Notice)",
+      "bodyContent": "안녕하세요.\n\n현재 {Blocker} 사유로 검토가 지연되고 있습니다. {NewDate}에 업데이트 드리겠습니다.\n\n양해 부탁드립니다.",
+      "fields": [
+        {
+          "key": "Blocker",
+          "label": "지연 사유",
+          "isRequired": true,
+          "placeholder": "예: 관련 부서 검토 대기"
+        },
+        {
+          "key": "NewDate",
+          "label": "업데이트 예정일",
+          "isRequired": true,
+          "placeholder": "예: 2026-03-06"
+        }
+      ]
+    },
+    {
+      "id": "TMP_05",
+      "title": "완료 보고 (Task Done)",
+      "bodyContent": "안녕하세요.\n\n요청하신 {TaskName} 작업을 완료했습니다. 결과를 확인 부탁드립니다.\n\n감사합니다.",
+      "fields": [
+        {
+          "key": "TaskName",
+          "label": "작업명",
+          "isRequired": true,
+          "placeholder": "예: 월간 보고서 정리"
+        }
+      ]
+    },
+    {
+      "id": "TMP_06",
+      "title": "보류/대기 (On Hold)",
+      "bodyContent": "안녕하세요.\n\n현재 {Dept} 확인이 필요하여 일시 보류 상태입니다. 확인되는 대로 다시 안내드리겠습니다.\n\n감사합니다.",
+      "fields": [
+        {
+          "key": "Dept",
+          "label": "관련 부서",
+          "isRequired": true,
+          "placeholder": "예: 법무팀"
+        }
+      ]
+    },
+    {
+      "id": "TMP_07",
+      "title": "승인 회신 (Approve)",
+      "bodyContent": "안녕하세요.\n\n요청하신 {ItemName} 건 승인합니다. 계획대로 진행 부탁드립니다.\n\n감사합니다.",
+      "fields": [
+        {
+          "key": "ItemName",
+          "label": "승인 항목",
+          "isRequired": true,
+          "placeholder": "예: 제안서 v2"
+        }
+      ]
+    },
+    {
+      "id": "TMP_08",
+      "title": "단순 감사 (Thank You)",
+      "bodyContent": "안녕하세요.\n\n공유 감사합니다. 내용 참고하겠습니다.\n\n감사합니다.",
+      "fields": []
+    }
+  ]
+}

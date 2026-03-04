@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MailTriageAssistant.Helpers;
+using MailTriageAssistant.Models;
 
 namespace MailTriageAssistant.Services;
 
@@ -19,6 +20,7 @@ public sealed class JsonSettingsService : ISettingsService
     };
 
     private readonly string _settingsPath;
+    private readonly string _backupPath;
 
     public JsonSettingsService()
         : this(GetDefaultSettingsPath())
@@ -30,6 +32,7 @@ public sealed class JsonSettingsService : ISettingsService
         _settingsPath = string.IsNullOrWhiteSpace(settingsPath)
             ? GetDefaultSettingsPath()
             : settingsPath;
+        _backupPath = $"{_settingsPath}.bak";
     }
 
     public async Task<IReadOnlyList<string>> LoadVipSendersAsync(CancellationToken ct = default)
@@ -43,16 +46,8 @@ public sealed class JsonSettingsService : ISettingsService
 
         try
         {
-            var json = await File.ReadAllTextAsync(_settingsPath, ct).ConfigureAwait(false);
-            var model = JsonSerializer.Deserialize<SettingsModel>(json, s_jsonOptions);
-            var list = model?.VipSenders ?? Array.Empty<string>();
-
-            return list
-                .Select(NormalizeVipEntry)
-                .Where(IsValidVipEntry)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
-                .ToArray();
+            var model = await LoadSettingsModelAsync(_settingsPath, ct).ConfigureAwait(false);
+            return NormalizeVipSenders(model.VipSenders);
         }
         catch (OperationCanceledException)
         {
@@ -60,49 +55,137 @@ public sealed class JsonSettingsService : ISettingsService
         }
         catch
         {
-            // Do not surface file contents or exception messages (could include user emails).
-            return Array.Empty<string>();
+            var corruptBackupPath = await BackupCorruptSettingsAsync(_settingsPath, ct).ConfigureAwait(false);
+            if (File.Exists(_backupPath))
+            {
+                try
+                {
+                    var recoveredModel = await LoadSettingsModelAsync(_backupPath, ct).ConfigureAwait(false);
+                    await SaveSettingsModelAtomicAsync(recoveredModel, ct).ConfigureAwait(false);
+                    return NormalizeVipSenders(recoveredModel.VipSenders);
+                }
+                catch (Exception ex)
+                {
+                    throw new InvalidOperationException(
+                        "Settings recovery failed after detecting a corrupt settings file.",
+                        ex);
+                }
+            }
+
+            throw new InvalidOperationException(
+                $"Settings file is corrupt and was backed up to '{corruptBackupPath}'.");
         }
     }
 
     public async Task SaveVipSendersAsync(IEnumerable<string> vipSenders, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
+        var normalized = NormalizeVipSenders(vipSenders ?? Array.Empty<string>());
 
-        var normalized = (vipSenders ?? Array.Empty<string>())
-            .Select(NormalizeVipEntry)
-            .Where(IsValidVipEntry)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
+        var model = new UserSettingsV1
+        {
+            SchemaVersion = UserSettingsV1.Version,
+            SavedAtUtc = DateTimeOffset.UtcNow,
+            VipSenders = normalized.ToArray(),
+        };
 
-        try
-        {
-            var dir = Path.GetDirectoryName(_settingsPath);
-            if (!string.IsNullOrEmpty(dir))
-            {
-                Directory.CreateDirectory(dir);
-            }
-
-            var model = new SettingsModel { VipSenders = normalized };
-            var json = JsonSerializer.Serialize(model, s_jsonOptions);
-            await File.WriteAllTextAsync(_settingsPath, json, ct).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch
-        {
-            // Do not include ex.Message.
-            throw new InvalidOperationException("설정 파일을 저장할 수 없습니다.");
-        }
+        await SaveSettingsModelAtomicAsync(model, ct).ConfigureAwait(false);
     }
 
     internal static string GetDefaultSettingsPath()
     {
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
         return Path.Combine(appData, "MailTriageAssistant", "user_settings.json");
+    }
+
+    private async Task<UserSettingsV1> LoadSettingsModelAsync(string path, CancellationToken ct)
+    {
+        var json = await File.ReadAllTextAsync(path, ct).ConfigureAwait(false);
+        var model = JsonSerializer.Deserialize<UserSettingsV1>(json, s_jsonOptions);
+        if (model is null || model.SchemaVersion != UserSettingsV1.Version)
+        {
+            throw new InvalidDataException("Unsupported settings schema version.");
+        }
+
+        return model;
+    }
+
+    private async Task SaveSettingsModelAtomicAsync(UserSettingsV1 model, CancellationToken ct)
+    {
+        var dir = Path.GetDirectoryName(_settingsPath);
+        if (!string.IsNullOrEmpty(dir))
+        {
+            Directory.CreateDirectory(dir);
+        }
+
+        var json = JsonSerializer.Serialize(model, s_jsonOptions);
+        var validated = JsonSerializer.Deserialize<UserSettingsV1>(json, s_jsonOptions);
+        if (validated is null || validated.SchemaVersion != UserSettingsV1.Version)
+        {
+            throw new InvalidDataException("Settings validation failed before save.");
+        }
+
+        var tempPath = $"{_settingsPath}.{Guid.NewGuid():N}.tmp";
+
+        try
+        {
+            await File.WriteAllTextAsync(tempPath, json, ct).ConfigureAwait(false);
+
+            if (File.Exists(_settingsPath))
+            {
+                File.Copy(_settingsPath, _backupPath, overwrite: true);
+                File.Replace(tempPath, _settingsPath, destinationBackupFileName: null, ignoreMetadataErrors: true);
+            }
+            else
+            {
+                File.Move(tempPath, _settingsPath);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException("Failed to save settings atomically.", ex);
+        }
+        finally
+        {
+            try
+            {
+                if (File.Exists(tempPath))
+                {
+                    File.Delete(tempPath);
+                }
+            }
+            catch
+            {
+                // Ignore temp cleanup failures.
+            }
+        }
+    }
+
+    private static IReadOnlyList<string> NormalizeVipSenders(IEnumerable<string> vipSenders)
+    {
+        return (vipSenders ?? Array.Empty<string>())
+            .Select(NormalizeVipEntry)
+            .Where(IsValidVipEntry)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private async Task<string> BackupCorruptSettingsAsync(string path, CancellationToken ct)
+    {
+        var corruptPath = $"{path}.corrupt-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}.bak";
+        await using (var source = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+        await using (var destination = new FileStream(corruptPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+        {
+            await source.CopyToAsync(destination, ct).ConfigureAwait(false);
+        }
+
+        File.Delete(path);
+        return corruptPath;
     }
 
     private static string NormalizeVipEntry(string value)
@@ -127,10 +210,5 @@ public sealed class JsonSettingsService : ISettingsService
         return domain.Length > 2
             && domain.Contains('.')
             && !domain.Contains(' ');
-    }
-
-    private sealed class SettingsModel
-    {
-        public string[] VipSenders { get; set; } = Array.Empty<string>();
     }
 }

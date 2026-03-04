@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
+using MailTriageAssistant.Helpers;
 using MailTriageAssistant.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -13,38 +14,40 @@ public sealed class DigestService : IDigestService
 {
     private static readonly Regex EscapeCellCharsRegex = new(@"[|\[\]()\!<>]", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
-    private readonly IRedactionService _redactionService;
+    private readonly IDigestPromptProvider _promptProvider;
     private readonly ILogger<DigestService> _logger;
 
     public DigestService(
-        IRedactionService redactionService,
+        IDigestPromptProvider promptProvider,
         ILogger<DigestService> logger)
     {
-        _redactionService = redactionService ?? throw new ArgumentNullException(nameof(redactionService));
+        _promptProvider = promptProvider ?? throw new ArgumentNullException(nameof(promptProvider));
         _logger = logger ?? NullLogger<DigestService>.Instance;
     }
 
-    public string GenerateDigest(IReadOnlyList<AnalyzedItem> items)
+    public string GenerateDigest(IReadOnlyList<DigestEmailItem> items)
     {
         var sw = Stopwatch.StartNew();
 
         var sb = new StringBuilder();
-        sb.AppendLine("🧠 SYSTEM PROMPT: You are my executive assistant. Analyze the following REDACTED email digest.");
+        sb.AppendLine(_promptProvider.GetPrompt().TrimEnd());
         sb.AppendLine();
-        sb.AppendLine("| Priority | Sender | Subject | Summary (Redacted) |");
+        sb.AppendLine($"| {LocalizedStrings.Get("Str.Digest.Header.Priority", "Priority")} | {LocalizedStrings.Get("Str.Digest.Header.Sender", "Sender")} | {LocalizedStrings.Get("Str.Digest.Header.Subject", "Subject")} | {LocalizedStrings.Get("Str.Digest.Header.Summary", "Summary (Redacted)")} |");
         sb.AppendLine("|---|---|---|---|");
 
         foreach (var item in items)
         {
-            var priorityLabel = item.Score >= 80 ? "높음" : item.Score >= 50 ? "중간" : "낮음";
+            var priorityLabel = item.Score >= 80
+                ? LocalizedStrings.Get("Str.ScoreLabel.High", "High")
+                : item.Score >= 50
+                    ? LocalizedStrings.Get("Str.ScoreLabel.Medium", "Medium")
+                    : item.Score >= 30
+                        ? LocalizedStrings.Get("Str.ScoreLabel.Normal", "Normal")
+                        : LocalizedStrings.Get("Str.ScoreLabel.Low", "Low");
 
-            var senderDisplay = string.IsNullOrWhiteSpace(item.SenderEmail)
-                ? item.Sender
-                : $"{item.Sender} <{item.SenderEmail}>";
-
-            var sender = EscapeCell(_redactionService.Redact(senderDisplay));
-            var subject = EscapeCell(_redactionService.Redact(item.Subject));
-            var summary = EscapeCell(_redactionService.Redact(item.RedactedSummary));
+            var sender = EscapeCell(item.RedactedSender);
+            var subject = EscapeCell(item.RedactedSubject);
+            var summary = EscapeCell(item.RedactedSummary);
 
             sb.Append("| ")
               .Append(item.Score)
@@ -58,15 +61,6 @@ public sealed class DigestService : IDigestService
               .Append(summary)
               .AppendLine(" |");
         }
-
-        sb.AppendLine();
-        sb.AppendLine("---");
-        sb.AppendLine("Tasks:");
-        sb.AppendLine("1. Identify the top 3 critical items requiring immediate action.");
-        sb.AppendLine("2. List any deadlines or meeting requests.");
-        sb.AppendLine("3. Draft a polite 1-sentence reply for the top item.");
-        sb.AppendLine();
-        sb.AppendLine("Context: All PII has been redacted. Do NOT ask for unredacted information.");
 
         sw.Stop();
         _logger.LogInformation("Digest generated: {Count} items in {ElapsedMs}ms.", items.Count, sw.ElapsedMilliseconds);

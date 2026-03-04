@@ -292,7 +292,7 @@
 
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                             <ProgressBar IsIndeterminate="True" Width="160" Height="10" />
-                            <TextBlock Text="본문을 불러오는 중..."
+                            <TextBlock Text="{DynamicResource Str.Status.LoadingBody}"
                                        Margin="0,10,0,0"
                                        HorizontalAlignment="Center"
                                        Foreground="{StaticResource Brush.TextMuted}" />

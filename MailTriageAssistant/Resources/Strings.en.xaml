@@ -5,47 +5,39 @@
 
     <sys:String x:Key="Str.Button.LoadEmails">Run Triage</sys:String>
     <sys:String x:Key="Str.Button.GenerateDigestTeams">Copy Digest + Open Teams</sys:String>
+    <sys:String x:Key="Str.Button.OpenInOutlook">Open in Outlook</sys:String>
+    <sys:String x:Key="Str.Button.CopyForCopilot">Copy for Copilot</sys:String>
+    <sys:String x:Key="Str.Button.TemplateReply">Template Reply</sys:String>
+    <sys:String x:Key="Str.Button.DigestCopyTeams">Copy Digest + Teams</sys:String>
 
     <sys:String x:Key="Str.Label.TeamsUserEmail">Teams user email:</sys:String>
+    <sys:String x:Key="Str.Label.RedactedSummary">Redacted Body Summary</sys:String>
+    <sys:String x:Key="Str.Label.ReplyTemplate">Reply template</sys:String>
 
     <sys:String x:Key="Str.Tooltip.LoadEmails">Load recent inbox emails from Outlook and compute priority.</sys:String>
     <sys:String x:Key="Str.Tooltip.GenerateDigestTeams">Copy a digest of top-priority emails and open Teams.</sys:String>
     <sys:String x:Key="Str.Tooltip.TeamsUserEmail">Optional: user email address to open a chat in Teams.</sys:String>
+    <sys:String x:Key="Str.Tooltip.CategoryFilter">Show only emails of the selected category.</sys:String>
+    <sys:String x:Key="Str.Tooltip.EmailList">Email list sorted by priority.</sys:String>
+    <sys:String x:Key="Str.Tooltip.Attachment">Has attachments</sys:String>
+    <sys:String x:Key="Str.Tooltip.ReplyTemplateSelect">Create an Outlook reply draft using the selected template.</sys:String>
+    <sys:String x:Key="Str.Tooltip.OpenInOutlook">Open the selected email in Classic Outlook.</sys:String>
+    <sys:String x:Key="Str.Tooltip.CopyForCopilot">Copy selected redacted summary to clipboard. (Auto-clear in 30s)</sys:String>
+    <sys:String x:Key="Str.Tooltip.TemplateReply">Create an Outlook reply draft using the selected template.</sys:String>
+    <sys:String x:Key="Str.Tooltip.DigestCopyTeams">Copy digest and open Teams.</sys:String>
 
     <sys:String x:Key="Str.Automation.LoadEmails">Run triage</sys:String>
     <sys:String x:Key="Str.Automation.GenerateDigestTeams">Copy digest and open Teams</sys:String>
     <sys:String x:Key="Str.Automation.TeamsUserEmailInput">Teams user email input</sys:String>
+    <sys:String x:Key="Str.Automation.CategoryFilter">Category filter</sys:String>
+    <sys:String x:Key="Str.Automation.EmailList">Email list</sys:String>
+    <sys:String x:Key="Str.Automation.ReplyTemplateSelect">Reply template select</sys:String>
 
     <sys:String x:Key="Str.Header.PriorityEmails">Priority Emails</sys:String>
-    <sys:String x:Key="Str.Automation.CategoryFilter">Category filter</sys:String>
-    <sys:String x:Key="Str.Tooltip.CategoryFilter">Show only emails of the selected category.</sys:String>
-    <sys:String x:Key="Str.Automation.EmailList">Email list</sys:String>
-    <sys:String x:Key="Str.Tooltip.EmailList">Email list sorted by priority.</sys:String>
-
-    <sys:String x:Key="Str.Text.AttachmentMarker">  📎</sys:String>
-    <sys:String x:Key="Str.Tooltip.Attachment">Has attachments</sys:String>
+    <sys:String x:Key="Str.Text.AttachmentMarker"> [ATT]</sys:String>
 
     <sys:String x:Key="Str.Empty.EmailList.Title">No emails to show</sys:String>
     <sys:String x:Key="Str.Empty.EmailList.Body">Click 'Run Triage' to load messages from Outlook.</sys:String>
-
-    <sys:String x:Key="Str.Label.RedactedSummary">Redacted Body Summary</sys:String>
-
-    <sys:String x:Key="Str.Label.ReplyTemplate">Reply template</sys:String>
-    <sys:String x:Key="Str.Automation.ReplyTemplateSelect">Reply template select</sys:String>
-    <sys:String x:Key="Str.Tooltip.ReplyTemplateSelect">Create an Outlook reply draft using the selected template.</sys:String>
-
-    <sys:String x:Key="Str.Button.OpenInOutlook">Open in Outlook</sys:String>
-    <sys:String x:Key="Str.Tooltip.OpenInOutlook">Open the selected email in Classic Outlook.</sys:String>
-
-    <sys:String x:Key="Str.Button.CopyForCopilot">Copy for Copilot</sys:String>
-    <sys:String x:Key="Str.Tooltip.CopyForCopilot">Copy the selected email's redacted summary to the clipboard. (Auto-clear in 30s)</sys:String>
-
-    <sys:String x:Key="Str.Button.TemplateReply">Template reply</sys:String>
-    <sys:String x:Key="Str.Tooltip.TemplateReply">Create an Outlook reply draft using the selected template.</sys:String>
-
-    <sys:String x:Key="Str.Button.DigestCopyTeams">Copy Digest + Teams</sys:String>
-    <sys:String x:Key="Str.Tooltip.DigestCopyTeams">Copy a digest of top-priority emails and open Teams.</sys:String>
-
     <sys:String x:Key="Str.Empty.Selection.Title">Select an email</sys:String>
     <sys:String x:Key="Str.Empty.Selection.Body">Select an email on the left to view the redacted summary.</sys:String>
 
@@ -53,4 +45,72 @@
     <sys:String x:Key="Str.Tray.StatusProcessing">Status: Processing</sys:String>
     <sys:String x:Key="Str.Tray.OpenDashboard">Open dashboard</sys:String>
     <sys:String x:Key="Str.Tray.Exit">Exit</sys:String>
+
+    <sys:String x:Key="Str.Filter.Category.All">All</sys:String>
+    <sys:String x:Key="Str.Filter.Category.Action">Action</sys:String>
+    <sys:String x:Key="Str.Filter.Category.Approval">Approval</sys:String>
+    <sys:String x:Key="Str.Filter.Category.Vip">VIP</sys:String>
+    <sys:String x:Key="Str.Filter.Category.Meeting">Meeting</sys:String>
+    <sys:String x:Key="Str.Filter.Category.Newsletter">Newsletter</sys:String>
+    <sys:String x:Key="Str.Filter.Category.Fyi">FYI</sys:String>
+    <sys:String x:Key="Str.Filter.Category.Other">Other</sys:String>
+
+    <sys:String x:Key="Str.ScoreLabel.High">High</sys:String>
+    <sys:String x:Key="Str.ScoreLabel.Medium">Medium</sys:String>
+    <sys:String x:Key="Str.ScoreLabel.Normal">Normal</sys:String>
+    <sys:String x:Key="Str.ScoreLabel.Low">Low</sys:String>
+
+    <sys:String x:Key="Str.ActionHint.Action">Immediate action required</sys:String>
+    <sys:String x:Key="Str.ActionHint.Approval">Approval review needed</sys:String>
+    <sys:String x:Key="Str.ActionHint.Vip">VIP response needed</sys:String>
+    <sys:String x:Key="Str.ActionHint.Meeting">Meeting scheduling needed</sys:String>
+    <sys:String x:Key="Str.ActionHint.Newsletter">Consider unsubscribe</sys:String>
+    <sys:String x:Key="Str.ActionHint.Fyi">For reference</sys:String>
+    <sys:String x:Key="Str.ActionHint.Other">Review</sys:String>
+
+    <sys:String x:Key="Str.Digest.Header.Priority">Priority</sys:String>
+    <sys:String x:Key="Str.Digest.Header.Sender">Sender</sys:String>
+    <sys:String x:Key="Str.Digest.Header.Subject">Subject</sys:String>
+    <sys:String x:Key="Str.Digest.Header.Summary">Summary (Redacted)</sys:String>
+
+    <sys:String x:Key="Str.Status.Idle">Idle</sys:String>
+    <sys:String x:Key="Str.Status.LoadingHeaders">Loading emails from Outlook.</sys:String>
+    <sys:String x:Key="Str.Status.LoadCompletedCount">Loaded {0} emails.</sys:String>
+    <sys:String x:Key="Str.Status.NoEmails">No emails to display.</sys:String>
+    <sys:String x:Key="Str.Status.LoadCanceled">Email load canceled.</sys:String>
+    <sys:String x:Key="Str.Status.LoadFailed">Failed to load emails.</sys:String>
+    <sys:String x:Key="Str.Status.LoadingBody">Loading body.</sys:String>
+    <sys:String x:Key="Str.Status.BodyLoaded">Body loaded.</sys:String>
+    <sys:String x:Key="Str.Status.BodyLoadFailed">Failed to load body.</sys:String>
+    <sys:String x:Key="Str.Status.BodyLoadPendingSummary">Select to load and view redacted summary.</sys:String>
+    <sys:String x:Key="Str.Status.EmptyBodySummary">(Body is empty.)</sys:String>
+    <sys:String x:Key="Str.Status.DigestGenerating">Generating digest.</sys:String>
+    <sys:String x:Key="Str.Status.DigestTeamsOpened">Digest copied. Opening Teams.</sys:String>
+    <sys:String x:Key="Str.Status.DigestTeamsFailed">Digest copied. Failed to open Teams.</sys:String>
+    <sys:String x:Key="Str.Status.DigestCanceled">Digest generation canceled.</sys:String>
+    <sys:String x:Key="Str.Status.DigestFailed">Digest generation failed.</sys:String>
+    <sys:String x:Key="Str.Status.CopiedSummary">Redacted summary copied to clipboard (auto-clear in 30s).</sys:String>
+    <sys:String x:Key="Str.Status.CopyFailed">Clipboard copy failed.</sys:String>
+    <sys:String x:Key="Str.Status.OpenedInOutlook">Opened in Outlook.</sys:String>
+    <sys:String x:Key="Str.Status.OpenInOutlookFailed">Failed to open in Outlook.</sys:String>
+    <sys:String x:Key="Str.Status.ReplyDraftCreated">Outlook draft created.</sys:String>
+    <sys:String x:Key="Str.Status.ReplyDraftFailed">Failed to create reply draft.</sys:String>
+    <sys:String x:Key="Str.Status.AutoRefreshPaused">Auto refresh: Paused</sys:String>
+    <sys:String x:Key="Str.Status.AutoRefreshSoon">Next refresh soon</sys:String>
+    <sys:String x:Key="Str.Status.AutoRefreshNextInMinutes">Next refresh in {0} min</sys:String>
+    <sys:String x:Key="Str.Status.AutoRefreshPausedByFailures">Auto refresh paused after repeated failures.</sys:String>
+
+    <sys:String x:Key="Str.Dialog.ErrorTitle">Error</sys:String>
+    <sys:String x:Key="Str.Dialog.OutlookTitle">Outlook</sys:String>
+    <sys:String x:Key="Str.Dialog.AutoRefreshTitle">Auto Refresh</sys:String>
+    <sys:String x:Key="Str.Dialog.DigestReadyTitle">Digest Ready</sys:String>
+    <sys:String x:Key="Str.Dialog.TemplateReplyTitle">Template Reply</sys:String>
+    <sys:String x:Key="Str.Dialog.OutlookNotSupportedMessage">Classic Outlook is required. New Outlook is not supported.</sys:String>
+    <sys:String x:Key="Str.Dialog.OutlookUnavailableMessage">Outlook is unavailable. Start Classic Outlook and retry.</sys:String>
+    <sys:String x:Key="Str.Dialog.DigestTeamsOpenedMessage">Digest copied to clipboard and Teams opening.</sys:String>
+    <sys:String x:Key="Str.Dialog.DigestTeamsFailedMessage">Digest copied to clipboard. Open Teams manually.</sys:String>
+    <sys:String x:Key="Str.Dialog.ReplyMissingSenderMessage">Sender email address is not available.</sys:String>
+    <sys:String x:Key="Str.Dialog.TemplateMissingInputMessage">Required template fields are missing.</sys:String>
+    <sys:String x:Key="Str.Dialog.TemplateUnresolvedPlaceholderMessage">Template contains unresolved placeholders.</sys:String>
+    <sys:String x:Key="Str.Dialog.UnhandledExceptionMessage">Unexpected error occurred. Check Outlook status and retry.</sys:String>
 </ResourceDictionary>

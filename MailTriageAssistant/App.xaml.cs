@@ -327,7 +327,7 @@ public partial class App : Application
 
         return new Window
         {
-            Title = "MailTriageAssistant",
+            Title = GetResourceString("Str.MainWindow.Title"),
             Width = 640,
             Height = 360,
             WindowStyle = WindowStyle.None,
@@ -473,23 +473,47 @@ public partial class App : Application
 
         services.AddSingleton<IConfiguration>(configuration);
         services.Configure<TriageSettings>(configuration.GetSection(nameof(TriageSettings)));
+        services.Configure<OutlookOptions>(configuration.GetSection(nameof(OutlookOptions)));
+        services.Configure<TemplateCatalogOptions>(configuration.GetSection(nameof(TemplateCatalogOptions)));
+        services.Configure<DigestPromptOptions>(configuration.GetSection(nameof(DigestPromptOptions)));
 
         ConfigureLogging(services);
 
+        services.AddSingleton<IClock, SystemClock>();
+        services.AddSingleton<IClipboardService, WpfClipboardService>();
+        services.AddSingleton<IExternalLauncher, ShellExternalLauncher>();
         services.AddSingleton<SessionStatsService>();
         services.AddSingleton<IDialogService, WpfDialogService>();
         services.AddSingleton<ISettingsService, JsonSettingsService>();
+        services.AddSingleton<VipSenderProvider>();
         services.AddSingleton<RedactionService>();
         services.AddSingleton<IRedactionService>(sp => sp.GetRequiredService<RedactionService>());
         services.AddSingleton<ClipboardSecurityHelper>();
-        services.AddSingleton<IOutlookService, OutlookService>();
+        services.AddSingleton<IOutlookCapabilityDetector, OutlookCapabilityDetector>();
+        services.AddSingleton<IOutlookSessionHost, OutlookSessionHost>();
+        services.AddSingleton<IOutlookInboxReader, OutlookInboxReader>();
+        services.AddSingleton<IOutlookBodyReader, OutlookBodyReader>();
+        services.AddSingleton<IOutlookDraftComposer, OutlookDraftComposer>();
+        services.AddSingleton<IOutlookItemLauncher, OutlookItemLauncher>();
+        services.AddSingleton<OutlookService>();
+        services.AddSingleton<IOutlookService>(sp => sp.GetRequiredService<OutlookService>());
+        services.AddSingleton<IOutlookMailGateway>(sp => sp.GetRequiredService<OutlookService>());
         services.AddSingleton<TriageService>();
         services.AddSingleton<ITriageService>(sp => sp.GetRequiredService<TriageService>());
+        services.AddSingleton<IDigestPromptProvider, FileDigestPromptProvider>();
         services.AddSingleton<DigestService>();
         services.AddSingleton<IDigestService>(sp => sp.GetRequiredService<DigestService>());
         services.AddSingleton<IDigestDeliveryService, DigestDeliveryService>();
+        services.AddSingleton<ITemplateCatalogLoader, JsonTemplateCatalogLoader>();
+        services.AddSingleton<ITemplateRenderer, TemplateRenderer>();
+        services.AddSingleton<ITemplatePlaceholderValidator, TemplatePlaceholderValidator>();
         services.AddSingleton<TemplateService>();
         services.AddSingleton<ITemplateService>(sp => sp.GetRequiredService<TemplateService>());
+        services.AddSingleton<EmailListProjectionService>();
+        services.AddSingleton<SelectedEmailBodyLoader>();
+        services.AddSingleton<InboxRefreshCoordinator>();
+        services.AddSingleton<GenerateDigestWorkflow>();
+        services.AddSingleton<CreateReplyDraftWorkflow>();
 
         services.AddSingleton<MainViewModel>();
         services.AddTransient<MainWindow>();
@@ -551,8 +575,8 @@ public partial class App : Application
             ?? new WpfDialogService();
 
         dialog.ShowError(
-            "예기치 않은 오류가 발생했습니다. Outlook 상태를 확인한 뒤 다시 시도해 주세요.",
-            "MailTriageAssistant");
+            GetResourceString("Str.Dialog.UnhandledExceptionMessage"),
+            GetResourceString("Str.MainWindow.Title"));
     }
 
     private static void TryApplyLanguageResources(IServiceProvider services)
@@ -595,3 +619,4 @@ public partial class App : Application
         }
     }
 }
+

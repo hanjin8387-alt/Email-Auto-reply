@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using MailTriageAssistant.Helpers;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -9,13 +8,16 @@ namespace MailTriageAssistant.Services;
 public sealed class DigestDeliveryService : IDigestDeliveryService
 {
     private readonly ClipboardSecurityHelper _clipboardHelper;
+    private readonly IExternalLauncher _externalLauncher;
     private readonly ILogger<DigestDeliveryService> _logger;
 
     public DigestDeliveryService(
         ClipboardSecurityHelper clipboardHelper,
+        IExternalLauncher externalLauncher,
         ILogger<DigestDeliveryService> logger)
     {
         _clipboardHelper = clipboardHelper ?? throw new ArgumentNullException(nameof(clipboardHelper));
+        _externalLauncher = externalLauncher ?? throw new ArgumentNullException(nameof(externalLauncher));
         _logger = logger ?? NullLogger<DigestDeliveryService>.Instance;
     }
 
@@ -42,13 +44,13 @@ public sealed class DigestDeliveryService : IDigestDeliveryService
 
         _logger.LogInformation("TryOpenTeams requested (hasUserEmail={HasUserEmail}).", !string.IsNullOrWhiteSpace(email));
 
-        if (TryOpenUrl(https))
+        if (_externalLauncher.TryLaunch(https))
         {
             _logger.LogInformation("Teams opened via https.");
             return true;
         }
 
-        if (TryOpenUrl(msteams))
+        if (_externalLauncher.TryLaunch(msteams))
         {
             _logger.LogInformation("Teams opened via msteams.");
             return true;
@@ -58,20 +60,4 @@ public sealed class DigestDeliveryService : IDigestDeliveryService
         return false;
     }
 
-    private static bool TryOpenUrl(string url)
-    {
-        try
-        {
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = url,
-                UseShellExecute = true,
-            });
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
-    }
 }

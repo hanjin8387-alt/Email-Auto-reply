@@ -5,5 +5,5 @@ namespace MailTriageAssistant.Services;
 
 public interface IDigestService
 {
-    string GenerateDigest(IReadOnlyList<AnalyzedItem> items);
+    string GenerateDigest(IReadOnlyList<DigestEmailItem> items);
 }

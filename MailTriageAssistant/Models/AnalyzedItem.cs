@@ -9,6 +9,8 @@ public sealed class AnalyzedItem : INotifyPropertyChanged
     private EmailCategory _category;
     private int _score;
     private DateTime _receivedTime;
+    private RawEmailContent _rawContent = RawEmailContent.Empty;
+    private RedactedEmailContent _redactedContent = RedactedEmailContent.Empty;
     private string _redactedSender = string.Empty;
     private string _redactedSubject = string.Empty;
     private string _redactedSummary = string.Empty;
@@ -17,11 +19,6 @@ public sealed class AnalyzedItem : INotifyPropertyChanged
     private bool _isBodyLoaded;
 
     public string EntryId { get; init; } = string.Empty;
-
-    public string Sender { get; init; } = string.Empty;
-    public string SenderEmail { get; init; } = string.Empty;
-
-    public string Subject { get; init; } = string.Empty;
     public DateTime ReceivedTime
     {
         get => _receivedTime;
@@ -32,13 +29,25 @@ public sealed class AnalyzedItem : INotifyPropertyChanged
     public string RedactedSender
     {
         get => _redactedSender;
-        set => SetProperty(ref _redactedSender, value);
+        set
+        {
+            if (SetProperty(ref _redactedSender, value))
+            {
+                _redactedContent = _redactedContent with { Sender = value ?? string.Empty };
+            }
+        }
     }
 
     public string RedactedSubject
     {
         get => _redactedSubject;
-        set => SetProperty(ref _redactedSubject, value);
+        set
+        {
+            if (SetProperty(ref _redactedSubject, value))
+            {
+                _redactedContent = _redactedContent with { Subject = value ?? string.Empty };
+            }
+        }
     }
 
     public EmailCategory Category
@@ -56,7 +65,13 @@ public sealed class AnalyzedItem : INotifyPropertyChanged
     public string RedactedSummary
     {
         get => _redactedSummary;
-        set => SetProperty(ref _redactedSummary, value);
+        set
+        {
+            if (SetProperty(ref _redactedSummary, value))
+            {
+                _redactedContent = _redactedContent with { Summary = value ?? string.Empty };
+            }
+        }
     }
 
     public string ActionHint
@@ -75,6 +90,34 @@ public sealed class AnalyzedItem : INotifyPropertyChanged
     {
         get => _isBodyLoaded;
         set => SetProperty(ref _isBodyLoaded, value);
+    }
+
+    public RawEmailContent RawContent
+    {
+        get => _rawContent;
+        private set => SetProperty(ref _rawContent, value);
+    }
+
+    public RedactedEmailContent RedactedContent
+    {
+        get => _redactedContent;
+        private set => SetProperty(ref _redactedContent, value);
+    }
+
+    public string ReplyToAddress => RawContent.SenderEmail;
+
+    public void UpdateRawContent(RawEmailContent rawContent)
+    {
+        RawContent = rawContent ?? RawEmailContent.Empty;
+        OnPropertyChanged(nameof(ReplyToAddress));
+    }
+
+    public void UpdateRedactedContent(RedactedEmailContent redactedContent)
+    {
+        RedactedContent = redactedContent ?? RedactedEmailContent.Empty;
+        RedactedSender = RedactedContent.Sender;
+        RedactedSubject = RedactedContent.Subject;
+        RedactedSummary = RedactedContent.Summary;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.Windows;
 using System.Windows.Data;
 
 namespace MailTriageAssistant.Helpers;
@@ -15,13 +16,24 @@ public sealed class ScoreToLabelConverter : IValueConverter
             _ => 0,
         };
 
-        if (score >= 80) return "긴급";
-        if (score >= 50) return "중요";
-        if (score >= 30) return "보통";
-        return "참고";
+        if (score >= 80) return Resolve("Str.ScoreLabel.High", "High");
+        if (score >= 50) return Resolve("Str.ScoreLabel.Medium", "Medium");
+        if (score >= 30) return Resolve("Str.ScoreLabel.Normal", "Normal");
+        return Resolve("Str.ScoreLabel.Low", "Low");
     }
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         => Binding.DoNothing;
-}
 
+    private static string Resolve(string key, string fallback)
+    {
+        try
+        {
+            return (Application.Current?.TryFindResource(key) as string) ?? fallback;
+        }
+        catch
+        {
+            return fallback;
+        }
+    }
+}
