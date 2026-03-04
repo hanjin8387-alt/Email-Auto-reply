@@ -15,6 +15,7 @@
         <helpers:ScoreToColorConverter x:Key="ScoreToColor" />
         <helpers:ScoreToLabelConverter x:Key="ScoreToLabel" />
         <helpers:CategoryToIconConverter x:Key="CategoryToIcon" />
+        <helpers:CategoryToLocalizedLabelConverter x:Key="CategoryToLocalizedLabel" />
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
     </Window.Resources>
 
@@ -161,7 +162,7 @@
                                                                FontWeight="SemiBold"
                                                                Foreground="{StaticResource Brush.TextPrimary}" />
                                                 </Border>
-                                                <TextBlock Text="{Binding Category}"
+                                                <TextBlock Text="{Binding Category, Converter={StaticResource CategoryToLocalizedLabel}}"
                                                            FontSize="12"
                                                            Foreground="{StaticResource Brush.TextTertiary}"
                                                            VerticalAlignment="Center" />

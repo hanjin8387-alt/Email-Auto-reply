@@ -50,7 +50,7 @@ public sealed class SelectedEmailBodyLoader : IDisposable
         return await EnsureBodyAsync(item, OutlookOperationPriority.Interactive, linkedToken).ConfigureAwait(false);
     }
 
-    public async Task<int> EnsureBodiesLoadedAsync(
+    public async Task<BodyLoadApplyResult> EnsureBodiesLoadedAsync(
         IReadOnlyList<AnalyzedItem> items,
         OutlookOperationPriority priority,
         CancellationToken ct = default)
@@ -63,7 +63,12 @@ public sealed class SelectedEmailBodyLoader : IDisposable
 
         if (targets.Count == 0)
         {
-            return 0;
+            return new BodyLoadApplyResult(
+                RequestedCount: 0,
+                LoadedCount: 0,
+                FailedCount: 0,
+                CanceledCount: 0,
+                MissingCount: 0);
         }
 
         var entryIds = targets
@@ -71,9 +76,10 @@ public sealed class SelectedEmailBodyLoader : IDisposable
             .Distinct(StringComparer.Ordinal)
             .ToList();
 
-        var loadedByEntryId = await _mailGateway
-            .GetRawEmailContentsAsync(entryIds, priority, ct)
+        var batch = await _mailGateway
+            .GetRawEmailContentsBatchAsync(entryIds, priority, ct)
             .ConfigureAwait(false);
+        var loadedByEntryId = batch.LoadedByEntryId;
 
         var loadedCount = 0;
         foreach (var item in targets)
@@ -88,7 +94,13 @@ public sealed class SelectedEmailBodyLoader : IDisposable
             loadedCount++;
         }
 
-        return loadedCount;
+        var missing = Math.Max(0, batch.RequestedCount - loadedByEntryId.Count - batch.FailedCount - batch.CanceledCount);
+        return new BodyLoadApplyResult(
+            RequestedCount: batch.RequestedCount,
+            LoadedCount: loadedCount,
+            FailedCount: batch.FailedCount,
+            CanceledCount: batch.CanceledCount,
+            MissingCount: missing);
     }
 
     private async Task<bool> EnsureBodyAsync(AnalyzedItem item, OutlookOperationPriority priority, CancellationToken ct)
@@ -138,6 +150,7 @@ public sealed class SelectedEmailBodyLoader : IDisposable
             SenderEmail: senderEmail ?? string.Empty,
             Subject: subject ?? string.Empty,
             Body: loadedRaw.Body ?? string.Empty);
+        var persistedRaw = mergedRaw with { Body = string.Empty };
 
         var triage = _triageService.AnalyzeWithBody(mergedRaw.SenderEmail, mergedRaw.Subject, mergedRaw.Body);
         var redactedSummary = string.IsNullOrWhiteSpace(mergedRaw.Body)
@@ -149,7 +162,7 @@ public sealed class SelectedEmailBodyLoader : IDisposable
             Subject: _redactionService.Redact(mergedRaw.Subject),
             Summary: redactedSummary);
 
-        item.UpdateRawContent(mergedRaw);
+        item.UpdateRawContent(persistedRaw);
         item.UpdateRedactedContent(redacted);
         item.Category = triage.Category;
         item.Score = triage.Score;

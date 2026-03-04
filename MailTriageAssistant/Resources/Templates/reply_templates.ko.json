@@ -9,7 +9,7 @@
           "key": "TargetDate",
           "label": "회신 예정일",
           "isRequired": true,
-          "placeholder": "예: 2026-03-05"
+          "placeholder": "예: YYYY-MM-DD"
         }
       ]
     },
@@ -35,13 +35,13 @@
           "key": "Date1",
           "label": "옵션 1",
           "isRequired": true,
-          "placeholder": "예: 2026-03-04 10:00"
+          "placeholder": "예: YYYY-MM-DD HH:mm"
         },
         {
           "key": "Date2",
           "label": "옵션 2",
           "isRequired": true,
-          "placeholder": "예: 2026-03-04 15:00"
+          "placeholder": "예: YYYY-MM-DD HH:mm"
         }
       ]
     },
@@ -60,7 +60,7 @@
           "key": "NewDate",
           "label": "업데이트 예정일",
           "isRequired": true,
-          "placeholder": "예: 2026-03-06"
+          "placeholder": "예: YYYY-MM-DD"
         }
       ]
     },
@@ -111,3 +111,4 @@
     }
   ]
 }
+

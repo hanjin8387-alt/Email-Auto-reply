@@ -160,9 +160,10 @@ public sealed class CreateReplyDraftWorkflow
     private static string BuildReplySubject(string subject)
     {
         var normalized = subject ?? string.Empty;
-        if (!normalized.TrimStart().StartsWith("RE:", StringComparison.OrdinalIgnoreCase))
+        var prefix = LocalizedStrings.Get("Str.Mail.RePrefix", "RE:");
+        if (!normalized.TrimStart().StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
         {
-            normalized = $"RE: {normalized}";
+            normalized = $"{prefix} {normalized}";
         }
 
         return normalized;

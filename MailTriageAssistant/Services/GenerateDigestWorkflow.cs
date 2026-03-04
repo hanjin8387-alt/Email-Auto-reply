@@ -62,9 +62,19 @@ public sealed class GenerateDigestWorkflow
                 // Prefetch is best effort.
             }
 
-            await _bodyLoader
+            var bodyLoad = await _bodyLoader
                 .EnsureBodiesLoadedAsync(topItems, OutlookOperationPriority.UserInitiated, ct)
                 .ConfigureAwait(false);
+            if (bodyLoad.HasPartialFailures)
+            {
+                _logger.LogInformation(
+                    "Digest body load partial: requested={Requested}, loaded={Loaded}, failed={Failed}, canceled={Canceled}, missing={Missing}.",
+                    bodyLoad.RequestedCount,
+                    bodyLoad.LoadedCount,
+                    bodyLoad.FailedCount,
+                    bodyLoad.CanceledCount,
+                    bodyLoad.MissingCount);
+            }
 
             var digestItems = topItems
                 .Select(static item => new DigestEmailItem(

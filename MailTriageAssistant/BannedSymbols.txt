@@ -2,3 +2,5 @@
 T:System.Console;Do not use Console. Never log email body content.
 T:System.Diagnostics.Debug;Do not use Debug.* (especially Write/WriteLine). Never log email body content.
 T:System.Diagnostics.Trace;Do not use Trace.* (especially Write/WriteLine). Never log email body content.
+P:System.Exception.Message;Do not log exception messages because they can contain email-derived content.
+M:System.Exception.ToString;Do not log full exception strings because they can contain email-derived content.

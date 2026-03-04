@@ -9,10 +9,6 @@ public interface IOutlookService
 {
     Task<List<RawEmailHeader>> FetchInboxHeaders(CancellationToken ct = default);
 
-    Task<string> GetBody(string entryId, CancellationToken ct = default);
-
-    Task<IReadOnlyDictionary<string, string>> GetBodies(IReadOnlyList<string> entryIds, CancellationToken ct = default);
-
     Task OpenItem(string entryId, CancellationToken ct = default);
 
     Task CreateDraft(string to, string subject, string body, CancellationToken ct = default);

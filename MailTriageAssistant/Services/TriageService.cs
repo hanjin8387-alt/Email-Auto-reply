@@ -32,10 +32,10 @@ public sealed class TriageService : ITriageService, IDisposable
         _vipSenderProvider = vipSenderProvider ?? throw new ArgumentNullException(nameof(vipSenderProvider));
         _logger = logger ?? NullLogger<TriageService>.Instance;
 
-        _compiledRules = new CompiledTriageRules(optionsMonitor.CurrentValue ?? new TriageSettings(), vipSenderProvider.Current);
+        _compiledRules = CreateCompiledRules(optionsMonitor.CurrentValue ?? new TriageSettings());
         _settingsSubscription = optionsMonitor.OnChange(updated =>
         {
-            _compiledRules = new CompiledTriageRules(updated ?? new TriageSettings(), _vipSenderProvider.Current);
+            _compiledRules = CreateCompiledRules(updated ?? new TriageSettings());
         });
 
         _ = _vipSenderProvider.WarmupAsync();
@@ -182,4 +182,7 @@ public sealed class TriageService : ITriageService, IDisposable
 
         return merged;
     }
+
+    private CompiledTriageRules CreateCompiledRules(TriageSettings settings)
+        => new(settings, MergeVipEntries(settings, _vipSenderProvider.Current));
 }

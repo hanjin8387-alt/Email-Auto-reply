@@ -32,26 +32,6 @@ public sealed class OutlookService : IOutlookService, IOutlookMailGateway, IDisp
     public async Task<List<RawEmailHeader>> FetchInboxHeaders(CancellationToken ct = default)
         => (await _inboxReader.FetchInboxHeadersAsync(ct).ConfigureAwait(false)).ToList();
 
-    public async Task<string> GetBody(string entryId, CancellationToken ct = default)
-    {
-        var raw = await GetRawEmailContentAsync(
-            entryId,
-            priority: OutlookOperationPriority.UserInitiated,
-            ct).ConfigureAwait(false);
-
-        return raw.Body;
-    }
-
-    public async Task<IReadOnlyDictionary<string, string>> GetBodies(IReadOnlyList<string> entryIds, CancellationToken ct = default)
-    {
-        var raws = await GetRawEmailContentsAsync(
-            entryIds,
-            priority: OutlookOperationPriority.Background,
-            ct).ConfigureAwait(false);
-
-        return raws.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.Body, StringComparer.Ordinal);
-    }
-
     public Task OpenItem(string entryId, CancellationToken ct = default)
         => OpenItemAsync(entryId, ct);
 
@@ -72,6 +52,12 @@ public sealed class OutlookService : IOutlookService, IOutlookMailGateway, IDisp
         OutlookOperationPriority priority = OutlookOperationPriority.UserInitiated,
         CancellationToken ct = default)
         => _bodyReader.GetRawEmailContentsAsync(entryIds, priority, ct);
+
+    public Task<RawEmailBodyBatchResult> GetRawEmailContentsBatchAsync(
+        IReadOnlyList<string> entryIds,
+        OutlookOperationPriority priority = OutlookOperationPriority.UserInitiated,
+        CancellationToken ct = default)
+        => _bodyReader.GetRawEmailContentsBatchAsync(entryIds, priority, ct);
 
     public Task OpenItemAsync(string entryId, CancellationToken ct = default)
         => _itemLauncher.OpenItemAsync(entryId, ct);

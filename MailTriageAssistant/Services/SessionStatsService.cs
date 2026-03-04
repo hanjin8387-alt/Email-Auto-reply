@@ -13,6 +13,10 @@ public sealed class SessionStatsService
     private int _digestsCopied;
     private int _teamsOpenAttempts;
     private int _errors;
+    private int _bodyBatchesRequested;
+    private int _bodyBatchesLoaded;
+    private int _bodyBatchesFailed;
+    private int _bodyBatchesCanceled;
 
     private readonly Dictionary<EmailCategory, int> _categoryCounts = new();
 
@@ -49,6 +53,29 @@ public sealed class SessionStatsService
     public void RecordError()
         => Interlocked.Increment(ref _errors);
 
+    public void RecordBodyBatch(int requestedCount, int loadedCount, int failedCount, int canceledCount)
+    {
+        if (requestedCount > 0)
+        {
+            Interlocked.Add(ref _bodyBatchesRequested, requestedCount);
+        }
+
+        if (loadedCount > 0)
+        {
+            Interlocked.Add(ref _bodyBatchesLoaded, loadedCount);
+        }
+
+        if (failedCount > 0)
+        {
+            Interlocked.Add(ref _bodyBatchesFailed, failedCount);
+        }
+
+        if (canceledCount > 0)
+        {
+            Interlocked.Add(ref _bodyBatchesCanceled, canceledCount);
+        }
+    }
+
     public SessionStatsSnapshot Snapshot()
     {
         lock (_categoryCounts)
@@ -60,6 +87,10 @@ public sealed class SessionStatsService
                 Volatile.Read(ref _digestsCopied),
                 Volatile.Read(ref _teamsOpenAttempts),
                 Volatile.Read(ref _errors),
+                Volatile.Read(ref _bodyBatchesRequested),
+                Volatile.Read(ref _bodyBatchesLoaded),
+                Volatile.Read(ref _bodyBatchesFailed),
+                Volatile.Read(ref _bodyBatchesCanceled),
                 new ReadOnlyDictionary<EmailCategory, int>(new Dictionary<EmailCategory, int>(_categoryCounts)));
         }
     }
@@ -71,6 +102,10 @@ public sealed class SessionStatsService
         int DigestsCopied,
         int TeamsOpenAttempts,
         int Errors,
+        int BodyBatchesRequested,
+        int BodyBatchesLoaded,
+        int BodyBatchesFailed,
+        int BodyBatchesCanceled,
         IReadOnlyDictionary<EmailCategory, int> CategoryCounts);
 }
 

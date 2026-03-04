@@ -10,7 +10,7 @@ using Microsoft.Extensions.Options;
 
 namespace MailTriageAssistant.Services;
 
-public sealed class AutoRefreshController : IDisposable
+public sealed class AutoRefreshController : IAutoRefreshController
 {
     private readonly DispatcherTimer _autoRefreshTimer;
     private readonly DispatcherTimer _statusTimer;

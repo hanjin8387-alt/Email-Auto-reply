@@ -16,6 +16,11 @@ public interface IOutlookMailGateway
         OutlookOperationPriority priority = OutlookOperationPriority.UserInitiated,
         CancellationToken ct = default);
 
+    Task<RawEmailBodyBatchResult> GetRawEmailContentsBatchAsync(
+        IReadOnlyList<string> entryIds,
+        OutlookOperationPriority priority = OutlookOperationPriority.UserInitiated,
+        CancellationToken ct = default);
+
     Task OpenItemAsync(string entryId, CancellationToken ct = default);
 
     Task CreateDraftAsync(ReplyDraftRequest request, CancellationToken ct = default);

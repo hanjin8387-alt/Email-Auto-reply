@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace MailTriageAssistant.Models;
 
@@ -18,56 +18,17 @@ public sealed class TriageSettings
 
     public int AutoRefreshFailurePauseThreshold { get; set; } = 3;
 
-    public string[] VipSenders { get; set; } = new[]
-    {
-        "ceo@company.com",
-        "cto@company.com",
-        "manager@company.com",
-    };
+    public string[] VipSenders { get; set; } = Array.Empty<string>();
 
-    public string[] ActionKeywords { get; set; } = new[]
-    {
-        "요청",
-        "확인",
-        "긴급",
-        "ASAP",
-        "기한",
-        "Due",
-    };
+    public string[] ActionKeywords { get; set; } = Array.Empty<string>();
 
-    public string[] ApprovalKeywords { get; set; } = new[]
-    {
-        "결재",
-        "상신",
-        "승인요청",
-    };
+    public string[] ApprovalKeywords { get; set; } = Array.Empty<string>();
 
-    public string[] MeetingKeywords { get; set; } = new[]
-    {
-        "초대",
-        "Invite",
-        "회의",
-        "미팅",
-        "Zoom",
-        "Teams",
-    };
+    public string[] MeetingKeywords { get; set; } = Array.Empty<string>();
 
-    public string[] NewsletterKeywords { get; set; } = new[]
-    {
-        "구독",
-        "광고",
-        "No-Reply",
-        "News",
-        "Unsubscribe",
-    };
+    public string[] NewsletterKeywords { get; set; } = Array.Empty<string>();
 
-    public string[] FyiKeywords { get; set; } = new[]
-    {
-        "참고",
-        "공유",
-        "FYI",
-        "공지",
-    };
+    public string[] FyiKeywords { get; set; } = Array.Empty<string>();
 
     public int BaseScore { get; set; } = 50;
     public int VipBonus { get; set; } = 30;

@@ -19,6 +19,7 @@ public sealed class OutlookSessionHost : IOutlookSessionHost
     private readonly Task<Dispatcher> _comDispatcherTask;
     private readonly SemaphoreSlim _comLock = new(initialCount: 1, maxCount: 1);
     private int _interactiveWaiters;
+    private int _userInitiatedWaiters;
     private bool _disposed;
     private Outlook.Application? _app;
     private Outlook.NameSpace? _session;
@@ -119,11 +120,35 @@ public sealed class OutlookSessionHost : IOutlookSessionHost
 
     public void ResetConnection()
     {
-        SafeReleaseComObject(_session);
-        SafeReleaseComObject(_app);
-        _session = null;
-        _app = null;
-        _capabilityDetector.Invalidate();
+        if (_disposed)
+        {
+            return;
+        }
+
+        if (_comDispatcherTask.IsCompletedSuccessfully)
+        {
+            var dispatcher = _comDispatcherTask.Result;
+            if (!dispatcher.HasShutdownStarted && !dispatcher.HasShutdownFinished)
+            {
+                if (dispatcher.CheckAccess())
+                {
+                    ResetConnectionCore();
+                    return;
+                }
+
+                try
+                {
+                    dispatcher.Invoke(ResetConnectionCore);
+                    return;
+                }
+                catch
+                {
+                    // Fall through to best-effort direct reset.
+                }
+            }
+        }
+
+        ResetConnectionCore();
     }
 
     public void Dispose()
@@ -146,7 +171,7 @@ public sealed class OutlookSessionHost : IOutlookSessionHost
                     {
                         try
                         {
-                            ResetConnection();
+                            ResetConnectionCore();
                         }
                         catch
                         {
@@ -179,25 +204,52 @@ public sealed class OutlookSessionHost : IOutlookSessionHost
     {
         if (priority == OutlookOperationPriority.Interactive)
         {
-            Interlocked.Increment(ref _interactiveWaiters);
-            try
-            {
-                await _comLock.WaitAsync(ct).ConfigureAwait(false);
-            }
-            finally
-            {
-                Interlocked.Decrement(ref _interactiveWaiters);
-            }
-
+            await WaitWithCounterAsync(
+                ct,
+                onEnter: () => Interlocked.Increment(ref _interactiveWaiters),
+                onExit: () => Interlocked.Decrement(ref _interactiveWaiters),
+                waitForHigherPriority: static () => false).ConfigureAwait(false);
             return;
         }
 
-        while (Volatile.Read(ref _interactiveWaiters) > 0)
+        if (priority == OutlookOperationPriority.UserInitiated)
+        {
+            await WaitWithCounterAsync(
+                ct,
+                onEnter: () => Interlocked.Increment(ref _userInitiatedWaiters),
+                onExit: () => Interlocked.Decrement(ref _userInitiatedWaiters),
+                waitForHigherPriority: () => Volatile.Read(ref _interactiveWaiters) > 0).ConfigureAwait(false);
+            return;
+        }
+
+        while (Volatile.Read(ref _interactiveWaiters) > 0 || Volatile.Read(ref _userInitiatedWaiters) > 0)
         {
             await Task.Delay(15, ct).ConfigureAwait(false);
         }
 
         await _comLock.WaitAsync(ct).ConfigureAwait(false);
+    }
+
+    private async Task WaitWithCounterAsync(
+        CancellationToken ct,
+        Action onEnter,
+        Action onExit,
+        Func<bool> waitForHigherPriority)
+    {
+        onEnter();
+        try
+        {
+            while (waitForHigherPriority())
+            {
+                await Task.Delay(15, ct).ConfigureAwait(false);
+            }
+
+            await _comLock.WaitAsync(ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            onExit();
+        }
     }
 
     private void ThrowIfDisposed()
@@ -323,5 +375,14 @@ public sealed class OutlookSessionHost : IOutlookSessionHost
         {
             // Ignore COM release issues.
         }
+    }
+
+    private void ResetConnectionCore()
+    {
+        SafeReleaseComObject(_session);
+        SafeReleaseComObject(_app);
+        _session = null;
+        _app = null;
+        _capabilityDetector.Invalidate();
     }
 }

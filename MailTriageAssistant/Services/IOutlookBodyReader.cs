@@ -12,6 +12,11 @@ public interface IOutlookBodyReader
         OutlookOperationPriority priority = OutlookOperationPriority.UserInitiated,
         CancellationToken ct = default);
 
+    Task<RawEmailBodyBatchResult> GetRawEmailContentsBatchAsync(
+        IReadOnlyList<string> entryIds,
+        OutlookOperationPriority priority = OutlookOperationPriority.UserInitiated,
+        CancellationToken ct = default);
+
     Task<IReadOnlyDictionary<string, RawEmailContent>> GetRawEmailContentsAsync(
         IReadOnlyList<string> entryIds,
         OutlookOperationPriority priority = OutlookOperationPriority.UserInitiated,

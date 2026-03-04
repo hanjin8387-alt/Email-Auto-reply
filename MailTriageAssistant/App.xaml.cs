@@ -168,12 +168,16 @@ public partial class App : Application
             {
                 var snapshot = stats.Snapshot();
                 logger.LogInformation(
-                    "Session stats: HeadersLoaded={HeadersLoaded}, DigestsGenerated={DigestsGenerated}, DigestsCopied={DigestsCopied}, TeamsOpenAttempts={TeamsOpenAttempts}, Errors={Errors}.",
+                    "Session stats: HeadersLoaded={HeadersLoaded}, DigestsGenerated={DigestsGenerated}, DigestsCopied={DigestsCopied}, TeamsOpenAttempts={TeamsOpenAttempts}, Errors={Errors}, BodyRequested={BodyRequested}, BodyLoaded={BodyLoaded}, BodyFailed={BodyFailed}, BodyCanceled={BodyCanceled}.",
                     snapshot.HeadersLoaded,
                     snapshot.DigestsGenerated,
                     snapshot.DigestsCopied,
                     snapshot.TeamsOpenAttempts,
-                    snapshot.Errors);
+                    snapshot.Errors,
+                    snapshot.BodyBatchesRequested,
+                    snapshot.BodyBatchesLoaded,
+                    snapshot.BodyBatchesFailed,
+                    snapshot.BodyBatchesCanceled);
             }
         }
         catch
@@ -476,6 +480,24 @@ public partial class App : Application
         services.Configure<OutlookOptions>(configuration.GetSection(nameof(OutlookOptions)));
         services.Configure<TemplateCatalogOptions>(configuration.GetSection(nameof(TemplateCatalogOptions)));
         services.Configure<DigestPromptOptions>(configuration.GetSection(nameof(DigestPromptOptions)));
+        services.AddOptions<TemplateCatalogOptions>()
+            .PostConfigure<IOptionsMonitor<TriageSettings>>((options, triageMonitor) =>
+            {
+                options.ReplyTemplatesPath = ResolveLocalizedContentPath(
+                    configuredPath: options.ReplyTemplatesPath,
+                    language: triageMonitor.CurrentValue.Language,
+                    filePrefix: "Resources/Templates/reply_templates",
+                    extensionWithoutDot: "json");
+            });
+        services.AddOptions<DigestPromptOptions>()
+            .PostConfigure<IOptionsMonitor<TriageSettings>>((options, triageMonitor) =>
+            {
+                options.PromptPath = ResolveLocalizedContentPath(
+                    configuredPath: options.PromptPath,
+                    language: triageMonitor.CurrentValue.Language,
+                    filePrefix: "Resources/Prompts/digest_prompt",
+                    extensionWithoutDot: "md");
+            });
 
         ConfigureLogging(services);
 
@@ -514,6 +536,8 @@ public partial class App : Application
         services.AddSingleton<InboxRefreshCoordinator>();
         services.AddSingleton<GenerateDigestWorkflow>();
         services.AddSingleton<CreateReplyDraftWorkflow>();
+        services.AddSingleton<IMainViewModelWorkflow, MainViewModelWorkflow>();
+        services.AddSingleton<IAutoRefreshControllerFactory, AutoRefreshControllerFactory>();
 
         services.AddSingleton<MainViewModel>();
         services.AddTransient<MainWindow>();
@@ -617,6 +641,27 @@ public partial class App : Application
         {
             // Ignore language selection issues; default resources should still work.
         }
+    }
+
+    private static string ResolveLocalizedContentPath(
+        string? configuredPath,
+        string? language,
+        string filePrefix,
+        string extensionWithoutDot)
+    {
+        var normalized = (configuredPath ?? string.Empty).Trim();
+        var koPath = $"{filePrefix}.ko.{extensionWithoutDot}";
+        var enPath = $"{filePrefix}.en.{extensionWithoutDot}";
+
+        if (!string.IsNullOrWhiteSpace(normalized)
+            && !string.Equals(normalized, koPath, StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(normalized, enPath, StringComparison.OrdinalIgnoreCase))
+        {
+            return normalized;
+        }
+
+        var code = string.Equals(language, "en", StringComparison.OrdinalIgnoreCase) ? "en" : "ko";
+        return $"{filePrefix}.{code}.{extensionWithoutDot}";
     }
 }
 

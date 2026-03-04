@@ -1,0 +1,113 @@
+﻿{
+  "templates": [
+    {
+      "id": "TMP_01",
+      "title": "Acknowledge Receipt",
+      "bodyContent": "Hello,\n\nI received your email. I will review it and reply by {TargetDate}.\n\nThank you.",
+      "fields": [
+        {
+          "key": "TargetDate",
+          "label": "Reply by",
+          "isRequired": true,
+          "placeholder": "e.g., YYYY-MM-DD"
+        }
+      ]
+    },
+    {
+      "id": "TMP_02",
+      "title": "Request Additional Info",
+      "bodyContent": "Hello,\n\nTo proceed, I need the following information:\n- {MissingInfo}\n\nThank you.",
+      "fields": [
+        {
+          "key": "MissingInfo",
+          "label": "Requested info",
+          "isRequired": true,
+          "placeholder": "e.g., contract file, owner contact"
+        }
+      ]
+    },
+    {
+      "id": "TMP_03",
+      "title": "Propose Meeting Time",
+      "bodyContent": "Hello,\n\nHere are available meeting times. Please pick one:\n- Option 1: {Date1}\n- Option 2: {Date2}\n\nThank you.",
+      "fields": [
+        {
+          "key": "Date1",
+          "label": "Option 1",
+          "isRequired": true,
+          "placeholder": "e.g., YYYY-MM-DD HH:mm"
+        },
+        {
+          "key": "Date2",
+          "label": "Option 2",
+          "isRequired": true,
+          "placeholder": "e.g., YYYY-MM-DD HH:mm"
+        }
+      ]
+    },
+    {
+      "id": "TMP_04",
+      "title": "Delay Notice",
+      "bodyContent": "Hello,\n\nThe review is delayed due to {Blocker}. I will share an update by {NewDate}.\n\nThank you for your understanding.",
+      "fields": [
+        {
+          "key": "Blocker",
+          "label": "Delay reason",
+          "isRequired": true,
+          "placeholder": "e.g., awaiting legal review"
+        },
+        {
+          "key": "NewDate",
+          "label": "New update date",
+          "isRequired": true,
+          "placeholder": "e.g., YYYY-MM-DD"
+        }
+      ]
+    },
+    {
+      "id": "TMP_05",
+      "title": "Task Completed",
+      "bodyContent": "Hello,\n\nThe requested task ({TaskName}) has been completed. Please review the result.\n\nThank you.",
+      "fields": [
+        {
+          "key": "TaskName",
+          "label": "Task name",
+          "isRequired": true,
+          "placeholder": "e.g., monthly report cleanup"
+        }
+      ]
+    },
+    {
+      "id": "TMP_06",
+      "title": "On Hold",
+      "bodyContent": "Hello,\n\nThis request is on hold until confirmation from {Dept}. I will update you as soon as it's resolved.\n\nThank you.",
+      "fields": [
+        {
+          "key": "Dept",
+          "label": "Related team",
+          "isRequired": true,
+          "placeholder": "e.g., legal team"
+        }
+      ]
+    },
+    {
+      "id": "TMP_07",
+      "title": "Approve Request",
+      "bodyContent": "Hello,\n\nI approve the requested item: {ItemName}. Please proceed as planned.\n\nThank you.",
+      "fields": [
+        {
+          "key": "ItemName",
+          "label": "Approved item",
+          "isRequired": true,
+          "placeholder": "e.g., proposal v2"
+        }
+      ]
+    },
+    {
+      "id": "TMP_08",
+      "title": "Simple Thanks",
+      "bodyContent": "Hello,\n\nThank you for sharing this. I have noted it.\n\nThanks.",
+      "fields": []
+    }
+  ]
+}
