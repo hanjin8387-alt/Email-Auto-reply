@@ -49,13 +49,30 @@ public sealed class AsyncRelayCommand : ICommand
 
     public bool CanExecute(object? parameter) => !_isRunning && (_canExecute?.Invoke() ?? true);
 
-    public async void Execute(object? parameter)
+    public Task? ExecutionTask { get; private set; }
+
+    public void Execute(object? parameter)
     {
         if (!CanExecute(parameter))
         {
             return;
         }
 
+        ExecutionTask = ExecuteCoreAsync();
+    }
+
+    public Task ExecuteAsync(object? parameter = null)
+    {
+        if (!CanExecute(parameter))
+        {
+            return Task.CompletedTask;
+        }
+
+        return ExecutionTask = ExecuteCoreAsync();
+    }
+
+    private async Task ExecuteCoreAsync()
+    {
         try
         {
             _isRunning = true;
@@ -64,12 +81,7 @@ public sealed class AsyncRelayCommand : ICommand
         }
         catch (Exception ex)
         {
-            if (_onException is null)
-            {
-                throw;
-            }
-
-            _onException(ex);
+            _onException?.Invoke(ex);
         }
         finally
         {

@@ -1,28 +1,23 @@
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using System.Diagnostics;
-using System.Drawing;
-using System.IO;
-using System.Text.Json;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Input;
-using System.Windows.Threading;
-using Hardcodet.Wpf.TaskbarNotification;
 using MailTriageAssistant.Models;
 using MailTriageAssistant.Services;
 using MailTriageAssistant.ViewModels;
 using Serilog;
-using Serilog.Events;
+using System;
+using System.Diagnostics;
+using System.IO;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Threading;
 
 namespace MailTriageAssistant;
 
 public partial class App : Application
 {
     private ServiceProvider? _serviceProvider;
-    private TaskbarIcon? _trayIcon;
+    private readonly AppTrayManager _trayManager = new();
 #if DEBUG
     private long? _startupMs;
     private double? _startupWorkingSetMb;
@@ -44,7 +39,6 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
-        // Never surface raw exception messages that could contain email content.
         DispatcherUnhandledException += OnDispatcherUnhandledException;
 
 #if DEBUG
@@ -62,20 +56,16 @@ public partial class App : Application
             // Ignore splash screen failures.
         }
 
-        var services = new ServiceCollection();
-        ConfigureServices(services);
-        _serviceProvider = services.BuildServiceProvider();
+        var bootstrap = AppBootstrapper.Initialize();
+        _serviceProvider = bootstrap.ServiceProvider;
         Services = _serviceProvider;
-        TryApplyLanguageResources(_serviceProvider);
 
 #if DEBUG
         var startupStart = Stopwatch.GetTimestamp();
 #endif
 
-        var appLogger = _serviceProvider.GetRequiredService<ILogger<App>>();
-        appLogger.LogInformation("App started.");
-
-        var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
+        var appLogger = bootstrap.Logger;
+        var mainWindow = bootstrap.MainWindow;
         MainWindow = mainWindow;
 
         TryInitializeSystemTray(mainWindow);
@@ -90,6 +80,7 @@ public partial class App : Application
             {
                 // Ignore splash close failures.
             }
+
             splashWindow = null;
 
 #if DEBUG
@@ -107,7 +98,7 @@ public partial class App : Application
                     startupMs,
                     workingSetMb);
 
-                MailTriageAssistant.Helpers.PerfMetrics.AddTiming("startup_ms", startupMs);
+                Helpers.PerfMetrics.AddTiming("startup_ms", startupMs);
             }
             catch
             {
@@ -144,20 +135,12 @@ public partial class App : Application
         {
             // Ignore snapshot timer stop failures.
         }
-        _memorySnapshotTimer = null;
 
+        _memorySnapshotTimer = null;
         TryWritePerfMetrics();
 #endif
 
-        try
-        {
-            _trayIcon?.Dispose();
-        }
-        catch
-        {
-            // Ignore tray disposal issues.
-        }
-        _trayIcon = null;
+        _trayManager.Dispose();
         IsSystemTrayEnabled = false;
 
         try
@@ -168,7 +151,7 @@ public partial class App : Application
             {
                 var snapshot = stats.Snapshot();
                 logger.LogInformation(
-                    "Session stats: HeadersLoaded={HeadersLoaded}, DigestsGenerated={DigestsGenerated}, DigestsCopied={DigestsCopied}, TeamsOpenAttempts={TeamsOpenAttempts}, Errors={Errors}, BodyRequested={BodyRequested}, BodyLoaded={BodyLoaded}, BodyFailed={BodyFailed}, BodyCanceled={BodyCanceled}.",
+                    "Session stats: HeadersLoaded={HeadersLoaded}, DigestsGenerated={DigestsGenerated}, DigestsCopied={DigestsCopied}, TeamsOpenAttempts={TeamsOpenAttempts}, Errors={Errors}, BodyRequested={BodyRequested}, BodyLoaded={BodyLoaded}, BodyFailed={BodyFailed}, BodyCanceled={BodyCanceled}, OutlookItemsSkipped={OutlookItemsSkipped}.",
                     snapshot.HeadersLoaded,
                     snapshot.DigestsGenerated,
                     snapshot.DigestsCopied,
@@ -177,7 +160,8 @@ public partial class App : Application
                     snapshot.BodyBatchesRequested,
                     snapshot.BodyBatchesLoaded,
                     snapshot.BodyBatchesFailed,
-                    snapshot.BodyBatchesCanceled);
+                    snapshot.BodyBatchesCanceled,
+                    snapshot.OutlookItemsSkipped);
             }
         }
         catch
@@ -205,7 +189,6 @@ public partial class App : Application
             Directory.CreateDirectory(dir);
 
             var path = Path.Combine(dir, "perf_metrics.json");
-
             var exitWorkingSetMb = Math.Round(Process.GetCurrentProcess().WorkingSet64 / (1024d * 1024d), 1);
 
             var payload = new
@@ -215,7 +198,7 @@ public partial class App : Application
                 startup_working_set_mb = _startupWorkingSetMb,
                 exit_working_set_mb = exitWorkingSetMb,
                 memory_snapshots = _memorySnapshots,
-                timings = MailTriageAssistant.Helpers.PerfMetrics.Snapshot(),
+                timings = Helpers.PerfMetrics.Snapshot(),
             };
 
             var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true });
@@ -244,7 +227,6 @@ public partial class App : Application
             timer.Tick += (_, _) => TryCaptureDebugMemorySnapshot(appLogger);
             _memorySnapshotTimer = timer;
 
-            // Capture an initial baseline snapshot and then every 10 minutes.
             TryCaptureDebugMemorySnapshot(appLogger);
             timer.Start();
         }
@@ -293,17 +275,20 @@ public partial class App : Application
         {
             var triageOptions = _serviceProvider?.GetService<IOptionsMonitor<TriageSettings>>();
             var enabled = triageOptions?.CurrentValue?.EnableSystemTray ?? true;
-            if (!enabled)
-            {
-                return;
-            }
-
             if (mainWindow.DataContext is not MainViewModel vm)
             {
                 return;
             }
 
-            InitializeSystemTray(mainWindow, vm);
+            IsSystemTrayEnabled = _trayManager.TryInitialize(
+                mainWindow,
+                vm,
+                enabled,
+                () =>
+                {
+                    IsExitRequested = true;
+                    Shutdown();
+                });
         }
         catch
         {
@@ -313,7 +298,6 @@ public partial class App : Application
 
     private static Window CreateSplashWindow()
     {
-        // WPF splash window (kept minimal to avoid delaying startup).
         var uri = new Uri("pack://application:,,,/Resources/Splash.png", UriKind.Absolute);
 
         var bitmap = new System.Windows.Media.Imaging.BitmapImage();
@@ -331,7 +315,7 @@ public partial class App : Application
 
         return new Window
         {
-            Title = GetResourceString("Str.MainWindow.Title"),
+            Title = AppLocalizationManager.GetResourceString("Str.MainWindow.Title"),
             Width = 640,
             Height = 360,
             WindowStyle = WindowStyle.None,
@@ -344,324 +328,6 @@ public partial class App : Application
         };
     }
 
-    private void InitializeSystemTray(MainWindow mainWindow, MainViewModel viewModel)
-    {
-        if (_trayIcon is not null)
-        {
-            return;
-        }
-
-        var statusItem = new MenuItem { IsEnabled = false };
-        void UpdateStatus()
-        {
-            statusItem.Header = GetResourceString(viewModel.IsLoading
-                ? "Str.Tray.StatusProcessing"
-                : "Str.Tray.StatusIdle");
-        }
-
-        UpdateStatus();
-        viewModel.PropertyChanged += (_, args) =>
-        {
-            if (!string.Equals(args.PropertyName, nameof(MainViewModel.IsLoading), StringComparison.Ordinal))
-            {
-                return;
-            }
-
-            mainWindow.Dispatcher.Invoke(UpdateStatus);
-        };
-
-        var menu = new ContextMenu();
-        menu.Items.Add(statusItem);
-        menu.Items.Add(new Separator());
-
-        var runTriage = new MenuItem { Header = GetResourceString("Str.Button.LoadEmails") };
-        runTriage.Click += (_, _) => ExecuteCommand(viewModel.LoadEmailsCommand);
-
-        var copyDigest = new MenuItem { Header = GetResourceString("Str.Button.GenerateDigestTeams") };
-        copyDigest.Click += (_, _) => ExecuteCommand(viewModel.GenerateDigestCommand);
-
-        var open = new MenuItem { Header = GetResourceString("Str.Tray.OpenDashboard") };
-        open.Click += (_, _) => ShowMainWindow(mainWindow);
-
-        var exit = new MenuItem { Header = GetResourceString("Str.Tray.Exit") };
-        exit.Click += (_, _) =>
-        {
-            IsExitRequested = true;
-            Shutdown();
-        };
-
-        menu.Items.Add(runTriage);
-        menu.Items.Add(copyDigest);
-        menu.Items.Add(new Separator());
-        menu.Items.Add(open);
-        menu.Items.Add(exit);
-
-        _trayIcon = new TaskbarIcon
-        {
-            Icon = SystemIcons.Application,
-            ToolTipText = GetResourceString("Str.MainWindow.Title"),
-            ContextMenu = menu,
-            Visibility = Visibility.Visible,
-        };
-        IsSystemTrayEnabled = true;
-
-        _trayIcon.TrayMouseDoubleClick += (_, _) => ShowMainWindow(mainWindow);
-    }
-
-    private static string GetResourceString(string key)
-    {
-        try
-        {
-            return (Current?.TryFindResource(key) as string) ?? key;
-        }
-        catch
-        {
-            return key;
-        }
-    }
-
-    private static void ExecuteCommand(ICommand command)
-    {
-        try
-        {
-            if (command.CanExecute(null))
-            {
-                command.Execute(null);
-            }
-        }
-        catch
-        {
-            // Ignore command failures from tray.
-        }
-    }
-
-    private static void ShowMainWindow(MainWindow mainWindow)
-    {
-        try
-        {
-            if (!mainWindow.IsVisible)
-            {
-                mainWindow.Show();
-            }
-
-            if (mainWindow.WindowState == WindowState.Minimized)
-            {
-                mainWindow.WindowState = WindowState.Normal;
-            }
-
-            mainWindow.Activate();
-        }
-        catch
-        {
-            // Ignore window show failures.
-        }
-    }
-
-    private static void ConfigureServices(IServiceCollection services)
-    {
-        IConfiguration configuration;
-        try
-        {
-            configuration = new ConfigurationBuilder()
-                .SetBasePath(AppContext.BaseDirectory)
-                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
-                .Build();
-        }
-        catch (Exception ex) when (ex is JsonException || ex is FormatException || ex is InvalidDataException)
-        {
-            // Fallback to defaults when appsettings.json is malformed.
-            configuration = new ConfigurationBuilder()
-                .AddInMemoryCollection()
-                .Build();
-        }
-
-        services.AddSingleton<IConfiguration>(configuration);
-        services.Configure<TriageSettings>(configuration.GetSection(nameof(TriageSettings)));
-        services.Configure<OutlookOptions>(configuration.GetSection(nameof(OutlookOptions)));
-        services.Configure<TemplateCatalogOptions>(configuration.GetSection(nameof(TemplateCatalogOptions)));
-        services.Configure<DigestPromptOptions>(configuration.GetSection(nameof(DigestPromptOptions)));
-        services.AddOptions<TemplateCatalogOptions>()
-            .PostConfigure<IOptionsMonitor<TriageSettings>>((options, triageMonitor) =>
-            {
-                options.ReplyTemplatesPath = ResolveLocalizedContentPath(
-                    configuredPath: options.ReplyTemplatesPath,
-                    language: triageMonitor.CurrentValue.Language,
-                    filePrefix: "Resources/Templates/reply_templates",
-                    extensionWithoutDot: "json");
-            });
-        services.AddOptions<DigestPromptOptions>()
-            .PostConfigure<IOptionsMonitor<TriageSettings>>((options, triageMonitor) =>
-            {
-                options.PromptPath = ResolveLocalizedContentPath(
-                    configuredPath: options.PromptPath,
-                    language: triageMonitor.CurrentValue.Language,
-                    filePrefix: "Resources/Prompts/digest_prompt",
-                    extensionWithoutDot: "md");
-            });
-
-        ConfigureLogging(services);
-
-        services.AddSingleton<IClock, SystemClock>();
-        services.AddSingleton<IClipboardService, WpfClipboardService>();
-        services.AddSingleton<IExternalLauncher, ShellExternalLauncher>();
-        services.AddSingleton<SessionStatsService>();
-        services.AddSingleton<IDialogService, WpfDialogService>();
-        services.AddSingleton<ISettingsService, JsonSettingsService>();
-        services.AddSingleton<VipSenderProvider>();
-        services.AddSingleton<RedactionService>();
-        services.AddSingleton<IRedactionService>(sp => sp.GetRequiredService<RedactionService>());
-        services.AddSingleton<ClipboardSecurityHelper>();
-        services.AddSingleton<IOutlookCapabilityDetector, OutlookCapabilityDetector>();
-        services.AddSingleton<IOutlookSessionHost, OutlookSessionHost>();
-        services.AddSingleton<IOutlookInboxReader, OutlookInboxReader>();
-        services.AddSingleton<IOutlookBodyReader, OutlookBodyReader>();
-        services.AddSingleton<IOutlookDraftComposer, OutlookDraftComposer>();
-        services.AddSingleton<IOutlookItemLauncher, OutlookItemLauncher>();
-        services.AddSingleton<OutlookService>();
-        services.AddSingleton<IOutlookService>(sp => sp.GetRequiredService<OutlookService>());
-        services.AddSingleton<IOutlookMailGateway>(sp => sp.GetRequiredService<OutlookService>());
-        services.AddSingleton<TriageService>();
-        services.AddSingleton<ITriageService>(sp => sp.GetRequiredService<TriageService>());
-        services.AddSingleton<IDigestPromptProvider, FileDigestPromptProvider>();
-        services.AddSingleton<DigestService>();
-        services.AddSingleton<IDigestService>(sp => sp.GetRequiredService<DigestService>());
-        services.AddSingleton<IDigestDeliveryService, DigestDeliveryService>();
-        services.AddSingleton<ITemplateCatalogLoader, JsonTemplateCatalogLoader>();
-        services.AddSingleton<ITemplateRenderer, TemplateRenderer>();
-        services.AddSingleton<ITemplatePlaceholderValidator, TemplatePlaceholderValidator>();
-        services.AddSingleton<TemplateService>();
-        services.AddSingleton<ITemplateService>(sp => sp.GetRequiredService<TemplateService>());
-        services.AddSingleton<EmailListProjectionService>();
-        services.AddSingleton<SelectedEmailBodyLoader>();
-        services.AddSingleton<InboxRefreshCoordinator>();
-        services.AddSingleton<GenerateDigestWorkflow>();
-        services.AddSingleton<CreateReplyDraftWorkflow>();
-        services.AddSingleton<IMainViewModelWorkflow, MainViewModelWorkflow>();
-        services.AddSingleton<IAutoRefreshControllerFactory, AutoRefreshControllerFactory>();
-
-        services.AddSingleton<MainViewModel>();
-        services.AddTransient<MainWindow>();
-    }
-
-    private static void ConfigureLogging(IServiceCollection services)
-    {
-        var logDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "MailTriageAssistant",
-            "logs");
-
-        Directory.CreateDirectory(logDir);
-        var logPath = Path.Combine(logDir, "MailTriageAssistant-.log");
-
-        Log.Logger = new LoggerConfiguration()
-            .MinimumLevel.Information()
-            .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
-            .Enrich.FromLogContext()
-            .WriteTo.File(
-                logPath,
-                rollingInterval: RollingInterval.Day,
-                retainedFileCountLimit: 7,
-                shared: true)
-            .CreateLogger();
-
-        services.AddLogging(builder =>
-        {
-            builder.ClearProviders();
-            builder.AddSerilog(Log.Logger, dispose: true);
-        });
-    }
-
-    private static void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
-    {
-        e.Handled = true;
-
-        try
-        {
-            // Never log exception messages: they could include email-derived content. Type/HResult only.
-            var app = sender as App;
-            var logger = app?._serviceProvider?.GetService<ILogger<App>>();
-            var ex = e.Exception;
-            if (logger is not null && ex is not null)
-            {
-                logger.LogError(
-                    "Unhandled exception: {ExceptionType} (HResult={HResult}).",
-                    ex.GetType().Name,
-                    ex.HResult);
-            }
-        }
-        catch
-        {
-            // Ignore logging failures inside exception handler.
-        }
-
-        // Use IDialogService to avoid direct MessageBox calls (testability + single UI abstraction).
-        var dialog = (sender as App)?._serviceProvider?.GetService<IDialogService>()
-            ?? new WpfDialogService();
-
-        dialog.ShowError(
-            GetResourceString("Str.Dialog.UnhandledExceptionMessage"),
-            GetResourceString("Str.MainWindow.Title"));
-    }
-
-    private static void TryApplyLanguageResources(IServiceProvider services)
-    {
-        try
-        {
-            var triageOptions = services.GetService<IOptionsMonitor<TriageSettings>>();
-            var language = triageOptions?.CurrentValue.Language ?? "ko";
-
-            var source = string.Equals(language, "en", StringComparison.OrdinalIgnoreCase)
-                ? "Resources/Strings.en.xaml"
-                : "Resources/Strings.ko.xaml";
-
-            var merged = Current?.Resources.MergedDictionaries;
-            if (merged is null)
-            {
-                return;
-            }
-
-            var existing = merged.FirstOrDefault(d =>
-            {
-                var s = d.Source?.OriginalString ?? string.Empty;
-                return s.EndsWith("Resources/Strings.ko.xaml", StringComparison.OrdinalIgnoreCase) ||
-                       s.EndsWith("Resources/Strings.en.xaml", StringComparison.OrdinalIgnoreCase);
-            });
-
-            var uri = new Uri(source, UriKind.Relative);
-            if (existing is null)
-            {
-                merged.Insert(0, new ResourceDictionary { Source = uri });
-            }
-            else
-            {
-                existing.Source = uri;
-            }
-        }
-        catch
-        {
-            // Ignore language selection issues; default resources should still work.
-        }
-    }
-
-    private static string ResolveLocalizedContentPath(
-        string? configuredPath,
-        string? language,
-        string filePrefix,
-        string extensionWithoutDot)
-    {
-        var normalized = (configuredPath ?? string.Empty).Trim();
-        var koPath = $"{filePrefix}.ko.{extensionWithoutDot}";
-        var enPath = $"{filePrefix}.en.{extensionWithoutDot}";
-
-        if (!string.IsNullOrWhiteSpace(normalized)
-            && !string.Equals(normalized, koPath, StringComparison.OrdinalIgnoreCase)
-            && !string.Equals(normalized, enPath, StringComparison.OrdinalIgnoreCase))
-        {
-            return normalized;
-        }
-
-        var code = string.Equals(language, "en", StringComparison.OrdinalIgnoreCase) ? "en" : "ko";
-        return $"{filePrefix}.{code}.{extensionWithoutDot}";
-    }
+    private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+        => AppExceptionPolicy.HandleDispatcherUnhandledException(_serviceProvider, e);
 }
-

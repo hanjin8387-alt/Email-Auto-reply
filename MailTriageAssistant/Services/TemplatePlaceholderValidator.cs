@@ -56,5 +56,13 @@ public sealed class TemplatePlaceholderValidator : ITemplatePlaceholderValidator
                 throw new InvalidDataException($"Template '{template.Id}' field '{field.Key}' is not present in body placeholders.");
             }
         }
+
+        foreach (var placeholder in placeholderSet)
+        {
+            if (!fieldKeys.Contains(placeholder))
+            {
+                throw new InvalidDataException($"Template '{template.Id}' placeholder '{placeholder}' is missing a field definition.");
+            }
+        }
     }
 }

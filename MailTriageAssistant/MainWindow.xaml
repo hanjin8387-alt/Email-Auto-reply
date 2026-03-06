@@ -282,7 +282,7 @@
                                 <Style.Triggers>
                                     <MultiDataTrigger>
                                         <MultiDataTrigger.Conditions>
-                                            <Condition Binding="{Binding IsLoading}" Value="True" />
+                                            <Condition Binding="{Binding IsSelectedBodyLoadInProgress}" Value="True" />
                                             <Condition Binding="{Binding SelectedEmail.IsBodyLoaded}" Value="False" />
                                         </MultiDataTrigger.Conditions>
                                         <Setter Property="Visibility" Value="Visible" />

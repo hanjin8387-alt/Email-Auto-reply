@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using MailTriageAssistant.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -15,6 +16,7 @@ public sealed class JsonTemplateCatalogLoader : ITemplateCatalogLoader
     private static readonly JsonSerializerOptions s_jsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
+        Converters = { new JsonStringEnumConverter() },
     };
 
     private readonly IOptionsMonitor<TemplateCatalogOptions> _optionsMonitor;
@@ -38,16 +40,49 @@ public sealed class JsonTemplateCatalogLoader : ITemplateCatalogLoader
         }
 
         var json = File.ReadAllText(fullPath);
-        var document = JsonSerializer.Deserialize<ReplyTemplateDocument>(json, s_jsonOptions);
-        var templates = document?.Templates ?? Array.Empty<ReplyTemplate>();
+        var document = JsonSerializer.Deserialize<ReplyTemplateCatalogDocument>(json, s_jsonOptions)
+            ?? throw new InvalidDataException("Reply template catalog is empty or invalid JSON.");
+        ValidateDocument(document, fullPath);
+        var templates = document.Templates ?? Array.Empty<ReplyTemplate>();
 
         var immutable = templates
             .Where(static t => t is not null)
             .Select(CloneTemplate)
             .ToArray();
 
-        _logger.LogInformation("Reply templates loaded from external catalog ({Count}).", immutable.Length);
+        _logger.LogInformation(
+            "Reply templates loaded from external catalog ({Count}, schemaVersion={SchemaVersion}).",
+            immutable.Length,
+            document.SchemaVersion);
         return immutable;
+    }
+
+    private static void ValidateDocument(ReplyTemplateCatalogDocument document, string fullPath)
+    {
+        if (document.SchemaVersion != ReplyTemplateCatalogDocument.CurrentSchemaVersion)
+        {
+            throw new InvalidDataException(
+                $"Reply template catalog schemaVersion '{document.SchemaVersion}' is not supported for '{fullPath}'.");
+        }
+
+        foreach (var template in document.Templates ?? Array.Empty<ReplyTemplate>())
+        {
+            if (template is null)
+            {
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(template.Id))
+            {
+                throw new InvalidDataException($"Reply template catalog '{fullPath}' contains a template with an empty id.");
+            }
+
+            if (string.IsNullOrWhiteSpace(template.BodyContent))
+            {
+                throw new InvalidDataException(
+                    $"Reply template catalog '{fullPath}' template '{template.Id}' has empty bodyContent.");
+            }
+        }
     }
 
     private static ReplyTemplate CloneTemplate(ReplyTemplate template)
@@ -64,13 +99,17 @@ public sealed class JsonTemplateCatalogLoader : ITemplateCatalogLoader
                     Label = field.Label ?? string.Empty,
                     Placeholder = field.Placeholder ?? string.Empty,
                     IsRequired = field.IsRequired,
+                    DefaultValue = field.DefaultValue is null
+                        ? new ReplyTemplateFieldDefaultValue()
+                        : new ReplyTemplateFieldDefaultValue
+                        {
+                            Kind = field.DefaultValue.Kind,
+                            Value = field.DefaultValue.Value ?? string.Empty,
+                            OffsetDays = field.DefaultValue.OffsetDays,
+                            DateFormat = field.DefaultValue.DateFormat ?? "yyyy-MM-dd",
+                        },
                 })
                 .ToArray(),
         };
-    }
-
-    private sealed class ReplyTemplateDocument
-    {
-        public ReplyTemplate[] Templates { get; set; } = Array.Empty<ReplyTemplate>();
     }
 }

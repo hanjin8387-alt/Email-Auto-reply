@@ -197,7 +197,7 @@ public sealed class AutoRefreshController : IAutoRefreshController
             return;
         }
 
-        if (outcome == InboxRefreshOutcome.Failure)
+        if (outcome is InboxRefreshOutcome.Failure or InboxRefreshOutcome.NotSupported or InboxRefreshOutcome.Unavailable)
         {
             _failureStreak++;
             var threshold = Math.Max(1, _settingsMonitor.CurrentValue.AutoRefreshFailurePauseThreshold);

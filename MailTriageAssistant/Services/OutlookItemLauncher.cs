@@ -1,5 +1,4 @@
 using System;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -28,33 +27,20 @@ public sealed class OutlookItemLauncher : IOutlookItemLauncher
             return;
         }
 
-        try
-        {
-            await _sessionHost.InvokeAsync(
-                ctx => OpenItemInternal(ctx, entryId),
-                OutlookOperationPriority.UserInitiated,
-                ct).ConfigureAwait(false);
-        }
-        catch (COMException ex)
-        {
-            _logger.LogWarning("OpenItem failed: {ExceptionType} (HResult={HResult}).", ex.GetType().Name, ex.HResult);
-            _sessionHost.ResetConnection();
-            throw new InvalidOperationException("Failed to open Outlook item. Verify Classic Outlook state.");
-        }
-        catch (NotSupportedException)
-        {
-            throw;
-        }
-        catch (InvalidOperationException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError("OpenItem failed: {ExceptionType}.", ex.GetType().Name);
-            _sessionHost.ResetConnection();
-            throw new InvalidOperationException("An error occurred while opening the Outlook item.");
-        }
+        _ = await OutlookOperationExecutor.ExecuteAsync(
+            _sessionHost,
+            _logger,
+            operationName: nameof(OpenItemAsync),
+            unavailableMessage: "Failed to open Outlook item. Verify Classic Outlook state.",
+            failureMessage: "An error occurred while opening the Outlook item.",
+            operation: async () =>
+            {
+                await _sessionHost.InvokeAsync(
+                    ctx => OpenItemInternal(ctx, entryId),
+                    OutlookOperationPriority.UserInitiated,
+                    ct).ConfigureAwait(false);
+                return true;
+            }).ConfigureAwait(false);
     }
 
     private static void OpenItemInternal(OutlookSessionContext context, string entryId)

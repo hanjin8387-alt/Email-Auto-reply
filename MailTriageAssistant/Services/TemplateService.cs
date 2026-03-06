@@ -13,7 +13,6 @@ public sealed class TemplateService : ITemplateService
     private readonly ITemplatePlaceholderValidator _validator;
     private readonly ITemplateRenderer _renderer;
     private readonly ILogger<TemplateService> _logger;
-    private readonly Lazy<IReadOnlyList<ReplyTemplate>> _templates;
 
     public TemplateService(
         ITemplateCatalogLoader loader,
@@ -25,12 +24,11 @@ public sealed class TemplateService : ITemplateService
         _validator = validator ?? throw new ArgumentNullException(nameof(validator));
         _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
         _logger = logger ?? NullLogger<TemplateService>.Instance;
-        _templates = new Lazy<IReadOnlyList<ReplyTemplate>>(LoadTemplates);
     }
 
     public List<ReplyTemplate> GetTemplates()
     {
-        var templates = _templates.Value
+        var templates = LoadTemplates()
             .Select(CloneTemplate)
             .ToList();
 
@@ -71,6 +69,15 @@ public sealed class TemplateService : ITemplateService
                     Label = field.Label,
                     IsRequired = field.IsRequired,
                     Placeholder = field.Placeholder,
+                    DefaultValue = field.DefaultValue is null
+                        ? new ReplyTemplateFieldDefaultValue()
+                        : new ReplyTemplateFieldDefaultValue
+                        {
+                            Kind = field.DefaultValue.Kind,
+                            Value = field.DefaultValue.Value,
+                            OffsetDays = field.DefaultValue.OffsetDays,
+                            DateFormat = field.DefaultValue.DateFormat,
+                        },
                 })
                 .ToArray(),
         };

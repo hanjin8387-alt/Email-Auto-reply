@@ -17,6 +17,7 @@ public sealed class SessionStatsService
     private int _bodyBatchesLoaded;
     private int _bodyBatchesFailed;
     private int _bodyBatchesCanceled;
+    private int _outlookItemsSkipped;
 
     private readonly Dictionary<EmailCategory, int> _categoryCounts = new();
 
@@ -76,6 +77,14 @@ public sealed class SessionStatsService
         }
     }
 
+    public void RecordOutlookItemsSkipped(int count)
+    {
+        if (count > 0)
+        {
+            Interlocked.Add(ref _outlookItemsSkipped, count);
+        }
+    }
+
     public SessionStatsSnapshot Snapshot()
     {
         lock (_categoryCounts)
@@ -91,6 +100,7 @@ public sealed class SessionStatsService
                 Volatile.Read(ref _bodyBatchesLoaded),
                 Volatile.Read(ref _bodyBatchesFailed),
                 Volatile.Read(ref _bodyBatchesCanceled),
+                Volatile.Read(ref _outlookItemsSkipped),
                 new ReadOnlyDictionary<EmailCategory, int>(new Dictionary<EmailCategory, int>(_categoryCounts)));
         }
     }
@@ -106,6 +116,7 @@ public sealed class SessionStatsService
         int BodyBatchesLoaded,
         int BodyBatchesFailed,
         int BodyBatchesCanceled,
+        int OutlookItemsSkipped,
         IReadOnlyDictionary<EmailCategory, int> CategoryCounts);
 }
 

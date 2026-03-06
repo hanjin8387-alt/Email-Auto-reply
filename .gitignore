@@ -3,6 +3,14 @@
 dist/
 .vs/
 .idea/
+artifacts/
+.codex/
+AGENTS.md
+docs/
+MailTriageAssistant.Tests/
+MailTriageAssistant.InteropSmokeTests/
+.github/
+.editorconfig
 
 *.user
 *.suo

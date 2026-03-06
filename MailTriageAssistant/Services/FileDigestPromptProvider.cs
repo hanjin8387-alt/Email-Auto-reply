@@ -19,6 +19,7 @@ Tasks:
 
 Context: All PII has been redacted. Do NOT ask for unredacted information.
 """;
+
     private const string DefaultPromptKo = """
 SYSTEM PROMPT: 당신은 나의 업무 보조 비서입니다. 아래 REDACTED 이메일 Digest를 분석하세요.
 
@@ -33,8 +34,6 @@ Context: 모든 개인정보는 이미 마스킹되었습니다. 비식별 해�
     private readonly IOptionsMonitor<DigestPromptOptions> _optionsMonitor;
     private readonly IOptionsMonitor<TriageSettings> _triageSettingsMonitor;
     private readonly ILogger<FileDigestPromptProvider> _logger;
-    private readonly object _cacheGate = new();
-    private string? _cachedPrompt;
 
     public FileDigestPromptProvider(
         IOptionsMonitor<DigestPromptOptions> optionsMonitor,
@@ -48,33 +47,22 @@ Context: 모든 개인정보는 이미 마스킹되었습니다. 비식별 해�
 
     public string GetPrompt()
     {
-        lock (_cacheGate)
+        var configuredPath = _optionsMonitor.CurrentValue.PromptPath ?? string.Empty;
+        var fullPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, configuredPath));
+        if (!File.Exists(fullPath))
         {
-            if (_cachedPrompt is not null)
-            {
-                return _cachedPrompt;
-            }
+            _logger.LogWarning("Digest prompt file missing; fallback prompt will be used.");
+            return GetFallbackPrompt();
+        }
 
-            var configuredPath = _optionsMonitor.CurrentValue.PromptPath ?? string.Empty;
-            var fullPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, configuredPath));
-            if (!File.Exists(fullPath))
-            {
-                _logger.LogWarning("Digest prompt file missing; fallback prompt will be used.");
-                _cachedPrompt = GetFallbackPrompt();
-                return _cachedPrompt;
-            }
-
-            try
-            {
-                _cachedPrompt = File.ReadAllText(fullPath);
-                return _cachedPrompt;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning("Digest prompt load failed: {ExceptionType}.", ex.GetType().Name);
-                _cachedPrompt = GetFallbackPrompt();
-                return _cachedPrompt;
-            }
+        try
+        {
+            return File.ReadAllText(fullPath);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("Digest prompt load failed: {ExceptionType}.", ex.GetType().Name);
+            return GetFallbackPrompt();
         }
     }
 

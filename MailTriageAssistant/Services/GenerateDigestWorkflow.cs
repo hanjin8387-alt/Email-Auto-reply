@@ -97,11 +97,12 @@ public sealed class GenerateDigestWorkflow
             var status = teamsOpened
                 ? LocalizedStrings.Get("Str.Status.DigestTeamsOpened", "Digest copied. Opening Teams.")
                 : LocalizedStrings.Get("Str.Status.DigestTeamsFailed", "Digest copied. Failed to open Teams.");
-            return new DigestWorkflowResult(status, teamsOpened);
+            return new DigestWorkflowResult(WorkflowActionOutcome.Success, status, teamsOpened);
         }
         catch (OperationCanceledException)
         {
             return new DigestWorkflowResult(
+                WorkflowActionOutcome.Cancelled,
                 LocalizedStrings.Get("Str.Status.DigestCanceled", "Digest generation canceled."),
                 TeamsOpened: false);
         }
@@ -114,4 +115,4 @@ public sealed class GenerateDigestWorkflow
     }
 }
 
-public sealed record DigestWorkflowResult(string StatusMessage, bool TeamsOpened);
+public sealed record DigestWorkflowResult(WorkflowActionOutcome Outcome, string StatusMessage, bool TeamsOpened);

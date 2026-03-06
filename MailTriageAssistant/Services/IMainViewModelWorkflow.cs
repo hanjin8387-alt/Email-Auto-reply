@@ -30,6 +30,16 @@ public interface IMainViewModelWorkflow
     Task<CommandWorkflowResult> OpenInOutlookAsync(AnalyzedItem? email, CancellationToken ct = default);
 }
 
+public enum WorkflowActionOutcome
+{
+    Skipped,
+    Success,
+    Cancelled,
+    NotSupported,
+    Unavailable,
+    Failure,
+}
+
 public sealed record LoadEmailsWorkflowResult(
     InboxRefreshOutcome Outcome,
     IReadOnlyList<AnalyzedItem> SortedItems,
@@ -37,6 +47,9 @@ public sealed record LoadEmailsWorkflowResult(
     string? RestoredSelectionEntryId,
     Task PrefetchTask);
 
-public sealed record SelectedBodyLoadWorkflowResult(bool Loaded, string? StatusMessage);
+public sealed record SelectedBodyLoadWorkflowResult(WorkflowActionOutcome Outcome, string? StatusMessage)
+{
+    public bool Loaded => Outcome == WorkflowActionOutcome.Success;
+}
 
-public sealed record CommandWorkflowResult(bool Performed, string? StatusMessage);
+public sealed record CommandWorkflowResult(WorkflowActionOutcome Outcome, string? StatusMessage);

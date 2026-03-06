@@ -1,5 +1,4 @@
 using System;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using MailTriageAssistant.Models;
@@ -26,33 +25,20 @@ public sealed class OutlookDraftComposer : IOutlookDraftComposer
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        try
-        {
-            await _sessionHost.InvokeAsync(
-                ctx => CreateDraftInternal(ctx, request),
-                OutlookOperationPriority.UserInitiated,
-                ct).ConfigureAwait(false);
-        }
-        catch (COMException ex)
-        {
-            _logger.LogWarning("CreateDraft failed: {ExceptionType} (HResult={HResult}).", ex.GetType().Name, ex.HResult);
-            _sessionHost.ResetConnection();
-            throw new InvalidOperationException("Failed to create Outlook draft. Verify Classic Outlook state.");
-        }
-        catch (NotSupportedException)
-        {
-            throw;
-        }
-        catch (InvalidOperationException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError("CreateDraft failed: {ExceptionType}.", ex.GetType().Name);
-            _sessionHost.ResetConnection();
-            throw new InvalidOperationException("An error occurred while creating Outlook draft.");
-        }
+        _ = await OutlookOperationExecutor.ExecuteAsync(
+            _sessionHost,
+            _logger,
+            operationName: nameof(CreateDraftAsync),
+            unavailableMessage: "Failed to create Outlook draft. Verify Classic Outlook state.",
+            failureMessage: "An error occurred while creating Outlook draft.",
+            operation: async () =>
+            {
+                await _sessionHost.InvokeAsync(
+                    ctx => CreateDraftInternal(ctx, request),
+                    OutlookOperationPriority.UserInitiated,
+                    ct).ConfigureAwait(false);
+                return true;
+            }).ConfigureAwait(false);
     }
 
     private static void CreateDraftInternal(OutlookSessionContext context, ReplyDraftRequest request)

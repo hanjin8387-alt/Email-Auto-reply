@@ -12,13 +12,16 @@ public sealed class CreateReplyDraftWorkflow
 {
     private readonly ITemplateService _templateService;
     private readonly IOutlookMailGateway _mailGateway;
+    private readonly IClock _clock;
 
     public CreateReplyDraftWorkflow(
         ITemplateService templateService,
-        IOutlookMailGateway mailGateway)
+        IOutlookMailGateway mailGateway,
+        IClock clock)
     {
         _templateService = templateService ?? throw new ArgumentNullException(nameof(templateService));
         _mailGateway = mailGateway ?? throw new ArgumentNullException(nameof(mailGateway));
+        _clock = clock ?? throw new ArgumentNullException(nameof(clock));
     }
 
     public ReplyDraftValidationResult Validate(
@@ -103,7 +106,7 @@ public sealed class CreateReplyDraftWorkflow
                     label: field.Label,
                     isRequired: field.IsRequired,
                     placeholder: field.Placeholder,
-                    value: GetTemplateDefaultValue(key, selectedEmail)));
+                    value: GetTemplateDefaultValue(field, selectedEmail)));
         }
 
         return inputs;
@@ -115,6 +118,11 @@ public sealed class CreateReplyDraftWorkflow
         AnalyzedItem? selectedEmail)
     {
         var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var fieldsByKey = (template.Fields ?? Array.Empty<ReplyTemplateField>())
+            .Where(static field => !string.IsNullOrWhiteSpace(field.Key))
+            .GroupBy(static field => field.Key, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(static group => group.Key, static group => group.First(), StringComparer.OrdinalIgnoreCase);
+
         foreach (var key in _templateService.ExtractPlaceholders(template.BodyContent ?? string.Empty))
         {
             if (string.IsNullOrWhiteSpace(key) || values.ContainsKey(key))
@@ -122,7 +130,9 @@ public sealed class CreateReplyDraftWorkflow
                 continue;
             }
 
-            values[key] = GetTemplateDefaultValue(key, selectedEmail);
+            values[key] = fieldsByKey.TryGetValue(key, out var field)
+                ? GetTemplateDefaultValue(field, selectedEmail)
+                : string.Empty;
         }
 
         foreach (var input in inputs)
@@ -169,20 +179,19 @@ public sealed class CreateReplyDraftWorkflow
         return normalized;
     }
 
-    private static string GetTemplateDefaultValue(string key, AnalyzedItem? selectedEmail)
+    private string GetTemplateDefaultValue(ReplyTemplateField field, AnalyzedItem? selectedEmail)
     {
-        if (string.Equals(key, "TargetDate", StringComparison.OrdinalIgnoreCase))
-        {
-            return DateTime.Today.AddDays(2).ToString("yyyy-MM-dd");
-        }
+        ArgumentNullException.ThrowIfNull(field);
 
-        if (string.Equals(key, "ItemName", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(key, "TaskName", StringComparison.OrdinalIgnoreCase))
+        var defaultValue = field.DefaultValue ?? new ReplyTemplateFieldDefaultValue();
+        return defaultValue.Kind switch
         {
-            return selectedEmail?.RedactedContent.Subject ?? string.Empty;
-        }
-
-        return string.Empty;
+            ReplyTemplateFieldDefaultKind.Literal => defaultValue.Value ?? string.Empty,
+            ReplyTemplateFieldDefaultKind.SelectedEmailSubject => selectedEmail?.RedactedContent.Subject ?? string.Empty,
+            ReplyTemplateFieldDefaultKind.CurrentDateOffset => _clock.Now.AddDays(defaultValue.OffsetDays).ToString(
+                string.IsNullOrWhiteSpace(defaultValue.DateFormat) ? "yyyy-MM-dd" : defaultValue.DateFormat),
+            _ => string.Empty,
+        };
     }
 }
 

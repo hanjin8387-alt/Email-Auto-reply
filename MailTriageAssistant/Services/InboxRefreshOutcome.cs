@@ -5,4 +5,6 @@ public enum InboxRefreshOutcome
     Success,
     Failure,
     Cancelled,
+    NotSupported,
+    Unavailable,
 }

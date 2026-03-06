@@ -125,30 +125,37 @@ public sealed class OutlookSessionHost : IOutlookSessionHost
             return;
         }
 
-        if (_comDispatcherTask.IsCompletedSuccessfully)
+        try
         {
-            var dispatcher = _comDispatcherTask.Result;
-            if (!dispatcher.HasShutdownStarted && !dispatcher.HasShutdownFinished)
+            if (_comDispatcherTask.IsCompletedSuccessfully)
             {
-                if (dispatcher.CheckAccess())
+                var dispatcher = _comDispatcherTask.Result;
+                if (!dispatcher.HasShutdownStarted && !dispatcher.HasShutdownFinished)
                 {
-                    ResetConnectionCore();
-                    return;
-                }
+                    if (dispatcher.CheckAccess())
+                    {
+                        ResetConnectionCore();
+                        return;
+                    }
 
-                try
-                {
-                    dispatcher.Invoke(ResetConnectionCore);
-                    return;
-                }
-                catch
-                {
-                    // Fall through to best-effort direct reset.
+                    try
+                    {
+                        dispatcher.Invoke(ResetConnectionCore);
+                        return;
+                    }
+                    catch
+                    {
+                        // Fall through to best-effort direct reset.
+                    }
                 }
             }
-        }
 
-        ResetConnectionCore();
+            ResetConnectionCore();
+        }
+        catch
+        {
+            // Connection reset is best effort and must not mask the original Outlook failure.
+        }
     }
 
     public void Dispose()

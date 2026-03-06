@@ -80,7 +80,7 @@ public sealed class MainViewModelWorkflow : IMainViewModelWorkflow
             _sessionStats.RecordError();
             var message = HandleOutlookNotSupported(showDialogs);
             return new LoadEmailsWorkflowResult(
-                InboxRefreshOutcome.Failure,
+                InboxRefreshOutcome.NotSupported,
                 existingItems.ToArray(),
                 message,
                 selectedEntryId,
@@ -91,7 +91,7 @@ public sealed class MainViewModelWorkflow : IMainViewModelWorkflow
             _sessionStats.RecordError();
             var message = HandleOutlookUnavailable(showDialogs);
             return new LoadEmailsWorkflowResult(
-                InboxRefreshOutcome.Failure,
+                InboxRefreshOutcome.Unavailable,
                 existingItems.ToArray(),
                 message,
                 selectedEntryId,
@@ -123,7 +123,7 @@ public sealed class MainViewModelWorkflow : IMainViewModelWorkflow
     {
         if (item is null || item.IsBodyLoaded)
         {
-            return new SelectedBodyLoadWorkflowResult(Loaded: false, StatusMessage: null);
+            return new SelectedBodyLoadWorkflowResult(WorkflowActionOutcome.Skipped, StatusMessage: null);
         }
 
         try
@@ -131,28 +131,30 @@ public sealed class MainViewModelWorkflow : IMainViewModelWorkflow
             var loaded = await _selectedBodyLoader.LoadSelectedBodyAsync(item, ct).ConfigureAwait(false);
             if (!loaded)
             {
-                return new SelectedBodyLoadWorkflowResult(Loaded: false, StatusMessage: null);
+                return new SelectedBodyLoadWorkflowResult(WorkflowActionOutcome.Skipped, StatusMessage: null);
             }
 
             return new SelectedBodyLoadWorkflowResult(
-                Loaded: true,
+                WorkflowActionOutcome.Success,
                 StatusMessage: LocalizedStrings.Get("Str.Status.BodyLoaded", "Body loaded."));
         }
         catch (NotSupportedException)
         {
             return new SelectedBodyLoadWorkflowResult(
-                Loaded: false,
+                WorkflowActionOutcome.NotSupported,
                 StatusMessage: HandleOutlookNotSupported(showDialog: true));
         }
         catch (InvalidOperationException)
         {
             return new SelectedBodyLoadWorkflowResult(
-                Loaded: false,
+                WorkflowActionOutcome.Unavailable,
                 StatusMessage: HandleOutlookUnavailable(showDialog: true));
         }
         catch (OperationCanceledException)
         {
-            throw;
+            return new SelectedBodyLoadWorkflowResult(
+                WorkflowActionOutcome.Cancelled,
+                StatusMessage: LocalizedStrings.Get("Str.Status.BodyLoadCanceled", "Body load canceled."));
         }
         catch (Exception ex)
         {
@@ -163,7 +165,7 @@ public sealed class MainViewModelWorkflow : IMainViewModelWorkflow
             _dialogService.ShowError(
                 message,
                 LocalizedStrings.Get("Str.Dialog.ErrorTitle", "Error"));
-            return new SelectedBodyLoadWorkflowResult(Loaded: false, StatusMessage: message);
+            return new SelectedBodyLoadWorkflowResult(WorkflowActionOutcome.Failure, StatusMessage: message);
         }
     }
 
@@ -183,7 +185,7 @@ public sealed class MainViewModelWorkflow : IMainViewModelWorkflow
                     .RunAsync(emails, prefetchTask, teamsUserEmail, token)
                     .ConfigureAwait(false);
 
-                if (result.TeamsOpened)
+                if (result.Outcome == WorkflowActionOutcome.Success && result.TeamsOpened)
                 {
                     _dialogService.ShowInfo(
                         LocalizedStrings.Get(
@@ -191,7 +193,7 @@ public sealed class MainViewModelWorkflow : IMainViewModelWorkflow
                             "Digest copied to clipboard and Teams opening."),
                         LocalizedStrings.Get("Str.Dialog.DigestReadyTitle", "Digest Ready"));
                 }
-                else
+                else if (result.Outcome == WorkflowActionOutcome.Success)
                 {
                     _dialogService.ShowInfo(
                         LocalizedStrings.Get(
@@ -200,7 +202,7 @@ public sealed class MainViewModelWorkflow : IMainViewModelWorkflow
                         LocalizedStrings.Get("Str.Dialog.DigestReadyTitle", "Digest Ready"));
                 }
 
-                return result.StatusMessage;
+                return new CommandWorkflowResult(result.Outcome, result.StatusMessage);
             },
             LocalizedStrings.Get("Str.Status.DigestFailed", "Digest generation failed."),
             ct);
@@ -214,7 +216,7 @@ public sealed class MainViewModelWorkflow : IMainViewModelWorkflow
     {
         if (email is null || template is null)
         {
-            return Task.FromResult(new CommandWorkflowResult(Performed: false, StatusMessage: null));
+            return Task.FromResult(new CommandWorkflowResult(WorkflowActionOutcome.Skipped, StatusMessage: null));
         }
 
         ArgumentNullException.ThrowIfNull(inputs);
@@ -227,7 +229,7 @@ public sealed class MainViewModelWorkflow : IMainViewModelWorkflow
                     "Str.Dialog.ReplyMissingSenderMessage",
                     "Sender email address is not available."),
                 LocalizedStrings.Get("Str.Dialog.TemplateReplyTitle", "Template Reply"));
-            return Task.FromResult(new CommandWorkflowResult(Performed: false, StatusMessage: null));
+            return Task.FromResult(new CommandWorkflowResult(WorkflowActionOutcome.Skipped, StatusMessage: null));
         }
 
         if (validation.MissingRequiredFields.Count > 0)
@@ -239,7 +241,7 @@ public sealed class MainViewModelWorkflow : IMainViewModelWorkflow
             _dialogService.ShowWarning(
                 $"{warningPrefix}\n{fields}",
                 LocalizedStrings.Get("Str.Dialog.TemplateReplyTitle", "Template Reply"));
-            return Task.FromResult(new CommandWorkflowResult(Performed: false, StatusMessage: null));
+            return Task.FromResult(new CommandWorkflowResult(WorkflowActionOutcome.Skipped, StatusMessage: null));
         }
 
         if (validation.HasUnresolvedPlaceholders)
@@ -249,15 +251,16 @@ public sealed class MainViewModelWorkflow : IMainViewModelWorkflow
                     "Str.Dialog.TemplateUnresolvedPlaceholderMessage",
                     "Template contains unresolved placeholders."),
                 LocalizedStrings.Get("Str.Dialog.TemplateReplyTitle", "Template Reply"));
-            return Task.FromResult(new CommandWorkflowResult(Performed: false, StatusMessage: null));
+            return Task.FromResult(new CommandWorkflowResult(WorkflowActionOutcome.Skipped, StatusMessage: null));
         }
 
         return ExecuteOutlookOperationAsync(
             async token =>
             {
-                return await _createReplyDraftWorkflow
+                var status = await _createReplyDraftWorkflow
                     .CreateDraftAsync(email, template, inputs, token)
                     .ConfigureAwait(false);
+                return new CommandWorkflowResult(WorkflowActionOutcome.Success, status);
             },
             LocalizedStrings.Get("Str.Status.ReplyDraftFailed", "Failed to create reply draft."),
             ct);
@@ -267,44 +270,47 @@ public sealed class MainViewModelWorkflow : IMainViewModelWorkflow
     {
         if (email is null)
         {
-            return Task.FromResult(new CommandWorkflowResult(Performed: false, StatusMessage: null));
+            return Task.FromResult(new CommandWorkflowResult(WorkflowActionOutcome.Skipped, StatusMessage: null));
         }
 
         return ExecuteOutlookOperationAsync(
             async token =>
             {
                 await _outlookMailGateway.OpenItemAsync(email.EntryId, token).ConfigureAwait(false);
-                return LocalizedStrings.Get("Str.Status.OpenedInOutlook", "Opened in Outlook.");
+                return new CommandWorkflowResult(
+                    WorkflowActionOutcome.Success,
+                    LocalizedStrings.Get("Str.Status.OpenedInOutlook", "Opened in Outlook."));
             },
             LocalizedStrings.Get("Str.Status.OpenInOutlookFailed", "Failed to open in Outlook."),
             ct);
     }
 
     private async Task<CommandWorkflowResult> ExecuteOutlookOperationAsync(
-        Func<CancellationToken, Task<string>> operation,
+        Func<CancellationToken, Task<CommandWorkflowResult>> operation,
         string errorMessage,
         CancellationToken ct)
     {
         try
         {
-            var status = await operation(ct).ConfigureAwait(false);
-            return new CommandWorkflowResult(Performed: true, StatusMessage: status);
+            return await operation(ct).ConfigureAwait(false);
         }
         catch (NotSupportedException)
         {
             return new CommandWorkflowResult(
-                Performed: true,
+                WorkflowActionOutcome.NotSupported,
                 StatusMessage: HandleOutlookNotSupported(showDialog: true));
         }
         catch (InvalidOperationException)
         {
             return new CommandWorkflowResult(
-                Performed: true,
+                WorkflowActionOutcome.Unavailable,
                 StatusMessage: HandleOutlookUnavailable(showDialog: true));
         }
         catch (OperationCanceledException)
         {
-            throw;
+            return new CommandWorkflowResult(
+                WorkflowActionOutcome.Cancelled,
+                StatusMessage: LocalizedStrings.Get("Str.Status.OperationCanceled", "Operation canceled."));
         }
         catch (Exception ex)
         {
@@ -313,7 +319,7 @@ public sealed class MainViewModelWorkflow : IMainViewModelWorkflow
             _dialogService.ShowError(
                 errorMessage,
                 LocalizedStrings.Get("Str.Dialog.ErrorTitle", "Error"));
-            return new CommandWorkflowResult(Performed: true, StatusMessage: errorMessage);
+            return new CommandWorkflowResult(WorkflowActionOutcome.Failure, StatusMessage: errorMessage);
         }
     }
 

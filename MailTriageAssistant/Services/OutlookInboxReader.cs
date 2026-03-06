@@ -16,18 +16,31 @@ namespace MailTriageAssistant.Services;
 public sealed class OutlookInboxReader : IOutlookInboxReader
 {
     private readonly IOutlookSessionHost _sessionHost;
+    private readonly SessionStatsService _sessionStats;
     private readonly IOptionsMonitor<OutlookOptions> _optionsMonitor;
     private readonly ILogger<OutlookInboxReader> _logger;
     private readonly object _cacheGate = new();
+    private readonly object _inFlightGate = new();
     private DateTimeOffset _headersCacheUtc;
     private List<RawEmailHeader>? _headersCache;
+    private InFlightHeaderFetch? _inFlightFetch;
 
     public OutlookInboxReader(
         IOutlookSessionHost sessionHost,
         IOptionsMonitor<OutlookOptions> optionsMonitor,
         ILogger<OutlookInboxReader> logger)
+        : this(sessionHost, new SessionStatsService(), optionsMonitor, logger)
+    {
+    }
+
+    public OutlookInboxReader(
+        IOutlookSessionHost sessionHost,
+        SessionStatsService sessionStats,
+        IOptionsMonitor<OutlookOptions> optionsMonitor,
+        ILogger<OutlookInboxReader> logger)
     {
         _sessionHost = sessionHost ?? throw new ArgumentNullException(nameof(sessionHost));
+        _sessionStats = sessionStats ?? throw new ArgumentNullException(nameof(sessionStats));
         _optionsMonitor = optionsMonitor ?? throw new ArgumentNullException(nameof(optionsMonitor));
         _logger = logger ?? NullLogger<OutlookInboxReader>.Instance;
     }
@@ -45,7 +58,40 @@ public sealed class OutlookInboxReader : IOutlookInboxReader
             }
         }
 
-        return FetchInboxHeadersCoreAsync(ct);
+        InFlightHeaderFetch inFlight;
+        lock (_inFlightGate)
+        {
+            if (_inFlightFetch is null)
+            {
+                var cts = new CancellationTokenSource();
+                var task = FetchInboxHeadersCoreAsync(cts.Token);
+                inFlight = new InFlightHeaderFetch(task, cts);
+                _inFlightFetch = inFlight;
+
+                _ = task.ContinueWith(
+                    _ =>
+                    {
+                        lock (_inFlightGate)
+                        {
+                            if (ReferenceEquals(_inFlightFetch, inFlight))
+                            {
+                                _inFlightFetch = null;
+                            }
+                        }
+
+                        inFlight.Dispose();
+                    },
+                    CancellationToken.None,
+                    TaskContinuationOptions.ExecuteSynchronously,
+                    TaskScheduler.Default);
+            }
+            else
+            {
+                inFlight = _inFlightFetch;
+            }
+        }
+
+        return WaitForSharedFetchAsync(inFlight, ct);
     }
 
     public void InvalidateCache()
@@ -57,52 +103,64 @@ public sealed class OutlookInboxReader : IOutlookInboxReader
         }
     }
 
-    private async Task<IReadOnlyList<RawEmailHeader>> FetchInboxHeadersCoreAsync(CancellationToken ct)
+    private async Task<IReadOnlyList<RawEmailHeader>> WaitForSharedFetchAsync(InFlightHeaderFetch inFlight, CancellationToken ct)
     {
+        inFlight.AddWaiter();
         try
         {
-            var headers = await _sessionHost.InvokeAsync(
-                ctx => FetchInboxHeadersInternal(ctx, _optionsMonitor.CurrentValue),
-                OutlookOperationPriority.UserInitiated,
-                ct).ConfigureAwait(false);
-
-            lock (_cacheGate)
-            {
-                _headersCacheUtc = DateTimeOffset.UtcNow;
-                _headersCache = headers;
-            }
-
+            var headers = await inFlight.Task.WaitAsync(ct).ConfigureAwait(false);
             return new List<RawEmailHeader>(headers);
         }
-        catch (COMException ex)
+        finally
         {
-            _logger.LogWarning("FetchInboxHeaders failed: {ExceptionType} (HResult={HResult}).", ex.GetType().Name, ex.HResult);
-            _sessionHost.ResetConnection();
-            throw new InvalidOperationException("Failed to communicate with Outlook. Verify Classic Outlook is running.");
-        }
-        catch (NotSupportedException)
-        {
-            throw;
-        }
-        catch (InvalidOperationException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError("FetchInboxHeaders failed: {ExceptionType}.", ex.GetType().Name);
-            _sessionHost.ResetConnection();
-            throw new InvalidOperationException("An error occurred while loading inbox headers.");
+            if (inFlight.RemoveWaiter() == 0 && !inFlight.Task.IsCompleted)
+            {
+                inFlight.Cancel();
+            }
         }
     }
 
-    private static List<RawEmailHeader> FetchInboxHeadersInternal(OutlookSessionContext context, OutlookOptions options)
+    private async Task<IReadOnlyList<RawEmailHeader>> FetchInboxHeadersCoreAsync(CancellationToken ct)
+    {
+        var fetchResult = await OutlookOperationExecutor.ExecuteAsync(
+            _sessionHost,
+            _logger,
+            operationName: nameof(FetchInboxHeadersAsync),
+            unavailableMessage: "Failed to communicate with Outlook. Verify Classic Outlook is running.",
+            failureMessage: "An error occurred while loading inbox headers.",
+            operation: () => _sessionHost.InvokeAsync(
+                ctx => FetchInboxHeadersInternal(ctx, _optionsMonitor.CurrentValue),
+                OutlookOperationPriority.UserInitiated,
+                ct)).ConfigureAwait(false);
+
+        lock (_cacheGate)
+        {
+            _headersCacheUtc = DateTimeOffset.UtcNow;
+            _headersCache = fetchResult.Headers;
+        }
+
+        var skippedCount = fetchResult.SkippedItemCount + fetchResult.MalformedItemCount;
+        if (skippedCount > 0)
+        {
+            _sessionStats.RecordOutlookItemsSkipped(skippedCount);
+            _logger.LogInformation(
+                "FetchInboxHeaders skipped items (skipped={Skipped}, malformed={Malformed}).",
+                fetchResult.SkippedItemCount,
+                fetchResult.MalformedItemCount);
+        }
+
+        return new List<RawEmailHeader>(fetchResult.Headers);
+    }
+
+    private static InboxHeaderFetchResult FetchInboxHeadersInternal(OutlookSessionContext context, OutlookOptions options)
     {
         Outlook.MAPIFolder? inbox = null;
         Outlook.Items? items = null;
         Outlook.Items? filteredItems = null;
         var filteredItemsIsSeparate = false;
         object? raw = null;
+        var skippedItemCount = 0;
+        var malformedItemCount = 0;
 
         try
         {
@@ -144,10 +202,14 @@ public sealed class OutlookInboxReader : IOutlookInboxReader
                             HasAttachments = hasAttachments,
                         });
                     }
+                    else
+                    {
+                        skippedItemCount++;
+                    }
                 }
                 catch
                 {
-                    // Skip malformed item and continue.
+                    malformedItemCount++;
                 }
                 finally
                 {
@@ -158,7 +220,7 @@ public sealed class OutlookInboxReader : IOutlookInboxReader
             }
 
             result.Sort((a, b) => b.ReceivedTime.CompareTo(a.ReceivedTime));
-            return result;
+            return new InboxHeaderFetchResult(result, skippedItemCount, malformedItemCount);
         }
         finally
         {
@@ -196,4 +258,41 @@ public sealed class OutlookInboxReader : IOutlookInboxReader
         var formatted = since.ToString("g", CultureInfo.GetCultureInfo("en-US"));
         return $"[ReceivedTime] >= '{formatted}'";
     }
+
+    private sealed class InFlightHeaderFetch : IDisposable
+    {
+        private readonly CancellationTokenSource _cts;
+        private int _waiterCount;
+
+        public InFlightHeaderFetch(Task<IReadOnlyList<RawEmailHeader>> task, CancellationTokenSource cts)
+        {
+            Task = task ?? throw new ArgumentNullException(nameof(task));
+            _cts = cts ?? throw new ArgumentNullException(nameof(cts));
+        }
+
+        public Task<IReadOnlyList<RawEmailHeader>> Task { get; }
+
+        public void AddWaiter() => Interlocked.Increment(ref _waiterCount);
+
+        public int RemoveWaiter() => Interlocked.Decrement(ref _waiterCount);
+
+        public void Cancel()
+        {
+            try
+            {
+                _cts.Cancel();
+            }
+            catch
+            {
+                // Ignore cancellation races.
+            }
+        }
+
+        public void Dispose() => _cts.Dispose();
+    }
+
+    private sealed record InboxHeaderFetchResult(
+        List<RawEmailHeader> Headers,
+        int SkippedItemCount,
+        int MalformedItemCount);
 }

@@ -1,4 +1,5 @@
-﻿{
+{
+  "schemaVersion": 1,
   "templates": [
     {
       "id": "TMP_01",
@@ -9,7 +10,12 @@
           "key": "TargetDate",
           "label": "Reply by",
           "isRequired": true,
-          "placeholder": "e.g., YYYY-MM-DD"
+          "placeholder": "e.g., YYYY-MM-DD",
+          "defaultValue": {
+            "kind": "CurrentDateOffset",
+            "offsetDays": 2,
+            "dateFormat": "yyyy-MM-dd"
+          }
         }
       ]
     },
@@ -73,7 +79,10 @@
           "key": "TaskName",
           "label": "Task name",
           "isRequired": true,
-          "placeholder": "e.g., monthly report cleanup"
+          "placeholder": "e.g., monthly report cleanup",
+          "defaultValue": {
+            "kind": "SelectedEmailSubject"
+          }
         }
       ]
     },
@@ -99,7 +108,10 @@
           "key": "ItemName",
           "label": "Approved item",
           "isRequired": true,
-          "placeholder": "e.g., proposal v2"
+          "placeholder": "e.g., proposal v2",
+          "defaultValue": {
+            "kind": "SelectedEmailSubject"
+          }
         }
       ]
     },

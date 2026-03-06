@@ -15,6 +15,7 @@ public sealed class VipSenderProvider
     private readonly object _gate = new();
     private string[] _current = Array.Empty<string>();
     private Task _warmupTask = Task.CompletedTask;
+    private long _version;
 
     public VipSenderProvider(ISettingsService settingsService, ILogger<VipSenderProvider> logger)
     {
@@ -32,6 +33,8 @@ public sealed class VipSenderProvider
             }
         }
     }
+
+    public long Version => Interlocked.Read(ref _version);
 
     public Task WarmupAsync(CancellationToken ct = default)
     {
@@ -61,6 +64,8 @@ public sealed class VipSenderProvider
             {
                 _current = normalized;
             }
+
+            Interlocked.Increment(ref _version);
         }
         catch (OperationCanceledException)
         {
@@ -73,6 +78,8 @@ public sealed class VipSenderProvider
             {
                 _current = Array.Empty<string>();
             }
+
+            Interlocked.Increment(ref _version);
         }
     }
 }

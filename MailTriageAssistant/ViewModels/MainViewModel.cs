@@ -32,13 +32,19 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private ReplyTemplate? _selectedTemplate;
     private CategoryFilterOption _selectedCategoryFilter = null!;
     private string _statusMessage = LocalizedStrings.Get("Str.Status.Idle", "Idle");
-    private bool _isLoading;
     private string _teamsUserEmail = string.Empty;
     private bool _autoRefreshPaused;
     private DateTimeOffset? _nextAutoRefreshAt;
     private string _autoRefreshStatusText = string.Empty;
     private Task _prefetchTask = Task.CompletedTask;
     private bool _isLiveSortingEnabled;
+    private bool _isInboxRefreshInProgress;
+    private bool _isSelectedBodyLoadInProgress;
+    private bool _isDigestGenerationInProgress;
+    private bool _isReplyDraftCreationInProgress;
+    private bool _isOpenInOutlookInProgress;
+    private CancellationTokenSource? _selectedBodyLoadCts;
+    private long _selectedBodyLoadRequestId;
 
     public MainViewModel(
         ClipboardSecurityHelper clipboardSecurityHelper,
@@ -61,11 +67,11 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         Templates = _templateService.GetTemplates();
         SelectedTemplate = Templates.FirstOrDefault();
 
-        LoadEmailsCommand = new AsyncRelayCommand(() => LoadEmailsAsync(), () => !IsLoading);
-        GenerateDigestCommand = new AsyncRelayCommand(() => GenerateDigestAsync(), () => !IsLoading && Emails.Count > 0);
-        ReplyCommand = new AsyncRelayCommand(() => ReplyAsync(), () => !IsLoading && SelectedEmail is not null && SelectedTemplate is not null);
+        LoadEmailsCommand = new AsyncRelayCommand(() => LoadEmailsAsync(), () => !IsLoading, HandleUnexpectedCommandException);
+        GenerateDigestCommand = new AsyncRelayCommand(() => GenerateDigestAsync(), () => !IsLoading && Emails.Count > 0, HandleUnexpectedCommandException);
+        ReplyCommand = new AsyncRelayCommand(() => ReplyAsync(), () => !IsLoading && SelectedEmail is not null && SelectedTemplate is not null, HandleUnexpectedCommandException);
         CopySelectedCommand = new RelayCommand(CopySelected, () => SelectedEmail is not null);
-        OpenInOutlookCommand = new AsyncRelayCommand(() => OpenInOutlookAsync(), () => !IsLoading && SelectedEmail is not null);
+        OpenInOutlookCommand = new AsyncRelayCommand(() => OpenInOutlookAsync(), () => !IsLoading && SelectedEmail is not null, HandleUnexpectedCommandException);
 
         CategoryFilterOptions = new List<CategoryFilterOption>
         {
@@ -141,10 +147,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             {
                 CommandManager.InvalidateRequerySuggested();
                 RebuildTemplateFieldInputs();
-                LoadSelectedEmailBodyAsync(value).SafeFireAndForget(ex =>
-                {
-                    _logger.LogDebug("Selected body load skipped due to {ExceptionType}.", ex.GetType().Name);
-                });
+                StartSelectedBodyLoad(value);
             }
         }
     }
@@ -186,17 +189,36 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         set => SetProperty(ref _statusMessage, value);
     }
 
-    public bool IsLoading
+    public bool IsInboxRefreshInProgress
     {
-        get => _isLoading;
-        set
-        {
-            if (SetProperty(ref _isLoading, value))
-            {
-                CommandManager.InvalidateRequerySuggested();
-            }
-        }
+        get => _isInboxRefreshInProgress;
+        private set => SetBusyFlag(ref _isInboxRefreshInProgress, value);
     }
+
+    public bool IsSelectedBodyLoadInProgress
+    {
+        get => _isSelectedBodyLoadInProgress;
+        private set => SetBusyFlag(ref _isSelectedBodyLoadInProgress, value);
+    }
+
+    public bool IsDigestGenerationInProgress
+    {
+        get => _isDigestGenerationInProgress;
+        private set => SetBusyFlag(ref _isDigestGenerationInProgress, value);
+    }
+
+    public bool IsReplyDraftCreationInProgress
+    {
+        get => _isReplyDraftCreationInProgress;
+        private set => SetBusyFlag(ref _isReplyDraftCreationInProgress, value);
+    }
+
+    public bool IsLoading
+        => IsInboxRefreshInProgress
+           || IsSelectedBodyLoadInProgress
+           || IsDigestGenerationInProgress
+           || IsReplyDraftCreationInProgress
+           || _isOpenInOutlookInProgress;
 
     public bool AutoRefreshPaused
     {
@@ -226,6 +248,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     public void Dispose()
     {
+        CancelSelectedBodyLoad();
         _autoRefreshController.StateChanged -= OnAutoRefreshStateChanged;
         _autoRefreshController.Dispose();
     }
@@ -241,7 +264,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     private async Task<InboxRefreshOutcome> TryLoadEmailsAsync(CancellationToken ct, bool showDialogs)
     {
-        IsLoading = true;
+        IsInboxRefreshInProgress = true;
         StatusMessage = LocalizedStrings.Get("Str.Status.LoadingHeaders", "Loading emails from Outlook.");
         var selectedEntryId = SelectedEmail?.EntryId;
 
@@ -271,49 +294,79 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         }
         finally
         {
-            IsLoading = false;
+            IsInboxRefreshInProgress = false;
         }
     }
 
-    private async Task LoadSelectedEmailBodyAsync(AnalyzedItem? item, CancellationToken ct = default)
+    private void StartSelectedBodyLoad(AnalyzedItem? item)
     {
+        Interlocked.Increment(ref _selectedBodyLoadRequestId);
+        CancelSelectedBodyLoad();
+
         if (item is null || item.IsBodyLoaded)
+        {
+            IsSelectedBodyLoadInProgress = false;
+            return;
+        }
+
+        var requestId = Volatile.Read(ref _selectedBodyLoadRequestId);
+        _selectedBodyLoadCts = new CancellationTokenSource();
+        _ = ObserveSelectedBodyLoadAsync(item, requestId, _selectedBodyLoadCts.Token);
+    }
+
+    private async Task ObserveSelectedBodyLoadAsync(AnalyzedItem item, long requestId, CancellationToken ct)
+    {
+        try
+        {
+            await LoadSelectedEmailBodyAsync(item, requestId, ct).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("Selected body load task failed: {ExceptionType}.", ex.GetType().Name);
+            HandleUnexpectedCommandException(ex);
+        }
+    }
+
+    private async Task LoadSelectedEmailBodyAsync(AnalyzedItem item, long requestId, CancellationToken ct)
+    {
+        if (!IsCurrentSelectedBodyLoad(requestId, item))
         {
             return;
         }
 
-        var setLoading = !IsLoading;
-        if (setLoading)
-        {
-            IsLoading = true;
-        }
+        IsSelectedBodyLoadInProgress = true;
+        StatusMessage = LocalizedStrings.Get("Str.Status.LoadingBody", "Loading body.");
 
         try
         {
-            StatusMessage = LocalizedStrings.Get("Str.Status.LoadingBody", "Loading body.");
             var result = await _workflow.LoadSelectedBodyAsync(item, ct).ConfigureAwait(true);
+            if (!IsCurrentSelectedBodyLoad(requestId, item))
+            {
+                return;
+            }
+
             if (!string.IsNullOrWhiteSpace(result.StatusMessage))
             {
                 StatusMessage = result.StatusMessage;
             }
 
-            if (result.Loaded && !_isLiveSortingEnabled)
+            if (result.Outcome == WorkflowActionOutcome.Success && !_isLiveSortingEnabled)
             {
                 EmailsView.Refresh();
             }
         }
         finally
         {
-            if (setLoading)
+            if (IsCurrentSelectedBodyLoad(requestId, item))
             {
-                IsLoading = false;
+                IsSelectedBodyLoadInProgress = false;
             }
         }
     }
 
     private async Task GenerateDigestAsync(CancellationToken ct = default)
     {
-        IsLoading = true;
+        IsDigestGenerationInProgress = true;
         StatusMessage = LocalizedStrings.Get("Str.Status.DigestGenerating", "Generating digest.");
 
         try
@@ -321,58 +374,42 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             var result = await _workflow
                 .GenerateDigestAsync(Emails.ToList(), _prefetchTask, TeamsUserEmail, ct)
                 .ConfigureAwait(true);
-            if (result.Performed && !string.IsNullOrWhiteSpace(result.StatusMessage))
-            {
-                StatusMessage = result.StatusMessage;
-            }
+            UpdateStatusFromOutcome(result.Outcome, result.StatusMessage);
         }
         finally
         {
-            IsLoading = false;
+            IsDigestGenerationInProgress = false;
         }
     }
 
     private async Task ReplyAsync(CancellationToken ct = default)
     {
-        IsLoading = true;
+        IsReplyDraftCreationInProgress = true;
         try
         {
             var result = await _workflow
                 .ReplyAsync(SelectedEmail, SelectedTemplate, TemplateFieldInputs.ToList(), ct)
                 .ConfigureAwait(true);
-            if (result.Performed && !string.IsNullOrWhiteSpace(result.StatusMessage))
-            {
-                StatusMessage = result.StatusMessage;
-            }
+            UpdateStatusFromOutcome(result.Outcome, result.StatusMessage);
         }
         finally
         {
-            IsLoading = false;
+            IsReplyDraftCreationInProgress = false;
         }
     }
 
     private async Task OpenInOutlookAsync(CancellationToken ct = default)
     {
-        var setLoading = !IsLoading;
-        if (setLoading)
-        {
-            IsLoading = true;
-        }
+        SetOpenInOutlookInProgress(true);
 
         try
         {
             var result = await _workflow.OpenInOutlookAsync(SelectedEmail, ct).ConfigureAwait(true);
-            if (result.Performed && !string.IsNullOrWhiteSpace(result.StatusMessage))
-            {
-                StatusMessage = result.StatusMessage;
-            }
+            UpdateStatusFromOutcome(result.Outcome, result.StatusMessage);
         }
         finally
         {
-            if (setLoading)
-            {
-                IsLoading = false;
-            }
+            SetOpenInOutlookInProgress(false);
         }
     }
 
@@ -437,6 +474,74 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         return category is null || item.Category == category.Value;
     }
 
+    private void HandleUnexpectedCommandException(Exception ex)
+    {
+        _logger.LogError("MainViewModel command failed unexpectedly: {ExceptionType}.", ex.GetType().Name);
+
+        if (ex is OperationCanceledException)
+        {
+            StatusMessage = LocalizedStrings.Get("Str.Status.OperationCanceled", "Operation canceled.");
+            return;
+        }
+
+        var message = LocalizedStrings.Get(
+            "Str.Dialog.UnhandledExceptionMessage",
+            "Unexpected error occurred. Check Outlook status and retry.");
+        StatusMessage = message;
+        _dialogService.ShowError(
+            message,
+            LocalizedStrings.Get("Str.Dialog.ErrorTitle", "Error"));
+    }
+
+    private void UpdateStatusFromOutcome(WorkflowActionOutcome outcome, string? statusMessage)
+    {
+        if (outcome == WorkflowActionOutcome.Skipped || string.IsNullOrWhiteSpace(statusMessage))
+        {
+            return;
+        }
+
+        StatusMessage = statusMessage;
+    }
+
+    private bool IsCurrentSelectedBodyLoad(long requestId, AnalyzedItem item)
+        => requestId == Volatile.Read(ref _selectedBodyLoadRequestId) && ReferenceEquals(SelectedEmail, item);
+
+    private void CancelSelectedBodyLoad()
+    {
+        var cts = _selectedBodyLoadCts;
+        _selectedBodyLoadCts = null;
+
+        if (cts is null)
+        {
+            return;
+        }
+
+        try
+        {
+            cts.Cancel();
+        }
+        catch
+        {
+            // Ignore cancellation races.
+        }
+        finally
+        {
+            cts.Dispose();
+        }
+    }
+
+    private void SetOpenInOutlookInProgress(bool value)
+    {
+        if (_isOpenInOutlookInProgress == value)
+        {
+            return;
+        }
+
+        _isOpenInOutlookInProgress = value;
+        OnPropertyChanged(nameof(IsLoading));
+        CommandManager.InvalidateRequerySuggested();
+    }
+
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
@@ -449,6 +554,18 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
         storage = value;
         OnPropertyChanged(propertyName);
+        return true;
+    }
+
+    private bool SetBusyFlag(ref bool storage, bool value, [CallerMemberName] string? propertyName = null)
+    {
+        if (!SetProperty(ref storage, value, propertyName))
+        {
+            return false;
+        }
+
+        OnPropertyChanged(nameof(IsLoading));
+        CommandManager.InvalidateRequerySuggested();
         return true;
     }
 }

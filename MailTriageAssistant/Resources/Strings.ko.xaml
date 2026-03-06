@@ -81,6 +81,7 @@
     <sys:String x:Key="Str.Status.LoadFailed">Failed to load emails.</sys:String>
     <sys:String x:Key="Str.Status.LoadingBody">Loading body.</sys:String>
     <sys:String x:Key="Str.Status.BodyLoaded">Body loaded.</sys:String>
+    <sys:String x:Key="Str.Status.BodyLoadCanceled">Body load canceled.</sys:String>
     <sys:String x:Key="Str.Status.BodyLoadFailed">Failed to load body.</sys:String>
     <sys:String x:Key="Str.Status.BodyLoadPendingSummary">Select to load and view redacted summary.</sys:String>
     <sys:String x:Key="Str.Status.EmptyBodySummary">(Body is empty.)</sys:String>
@@ -92,6 +93,7 @@
     <sys:String x:Key="Str.Status.CopiedSummary">Redacted summary copied to clipboard (auto-clear in 30s).</sys:String>
     <sys:String x:Key="Str.Status.CopyFailed">Clipboard copy failed.</sys:String>
     <sys:String x:Key="Str.Status.OpenedInOutlook">Opened in Outlook.</sys:String>
+    <sys:String x:Key="Str.Status.OperationCanceled">Operation canceled.</sys:String>
     <sys:String x:Key="Str.Status.OpenInOutlookFailed">Failed to open in Outlook.</sys:String>
     <sys:String x:Key="Str.Status.ReplyDraftCreated">Outlook draft created.</sys:String>
     <sys:String x:Key="Str.Status.ReplyDraftFailed">Failed to create reply draft.</sys:String>

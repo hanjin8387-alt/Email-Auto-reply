@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using MailTriageAssistant.Models;
 
 namespace MailTriageAssistant.Services;
@@ -109,7 +110,7 @@ public sealed class CompiledTriageRules
             return string.Empty;
         }
 
-        var trimmed = sender.Trim();
+        var trimmed = NormalizeText(sender).Trim();
         var lt = trimmed.IndexOf('<');
         if (lt < 0)
         {
@@ -141,6 +142,18 @@ public sealed class CompiledTriageRules
         return sender[(at + 1)..].Trim();
     }
 
+    private static string NormalizeText(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return string.Empty;
+        }
+
+        return value.IsNormalized(NormalizationForm.FormKC)
+            ? value
+            : value.Normalize(NormalizationForm.FormKC);
+    }
+
     private static bool ContainsAny(IReadOnlyList<KeywordMatcher> matchers, string text)
     {
         if (matchers.Count == 0 || string.IsNullOrEmpty(text))
@@ -148,9 +161,11 @@ public sealed class CompiledTriageRules
             return false;
         }
 
+        var normalizedText = NormalizeText(text);
+
         for (var i = 0; i < matchers.Count; i++)
         {
-            if (matchers[i].IsMatch(text))
+            if (matchers[i].IsMatch(normalizedText))
             {
                 return true;
             }
@@ -194,7 +209,10 @@ public sealed class CompiledTriageRules
     private readonly record struct KeywordMatcher(string Keyword, bool NeedsBoundary)
     {
         public static KeywordMatcher Create(string keyword)
-            => new(keyword, NeedsWordBoundary(keyword));
+        {
+            var normalizedKeyword = NormalizeText(keyword);
+            return new KeywordMatcher(normalizedKeyword, NeedsWordBoundary(normalizedKeyword));
+        }
 
         public bool IsMatch(string text)
         {
@@ -212,9 +230,9 @@ public sealed class CompiledTriageRules
                     return false;
                 }
 
-                var beforeValid = index == 0 || !char.IsLetterOrDigit(text[index - 1]);
+                var beforeValid = index == 0 || !IsWordCharacter(text[index - 1]);
                 var afterIndex = index + Keyword.Length;
-                var afterValid = afterIndex >= text.Length || !char.IsLetterOrDigit(text[afterIndex]);
+                var afterValid = afterIndex >= text.Length || !IsWordCharacter(text[afterIndex]);
                 if (beforeValid && afterValid)
                 {
                     return true;
@@ -230,12 +248,7 @@ public sealed class CompiledTriageRules
         {
             foreach (var ch in keyword)
             {
-                if (ch > 127)
-                {
-                    return false;
-                }
-
-                if (!(char.IsLetterOrDigit(ch) || ch is '_' or '-'))
+                if (!IsWordCharacter(ch))
                 {
                     return false;
                 }
@@ -243,5 +256,8 @@ public sealed class CompiledTriageRules
 
             return true;
         }
+
+        private static bool IsWordCharacter(char ch)
+            => char.IsLetterOrDigit(ch) || ch is '_' or '-';
     }
 }

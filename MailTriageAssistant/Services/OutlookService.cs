@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -7,7 +6,7 @@ using MailTriageAssistant.Models;
 
 namespace MailTriageAssistant.Services;
 
-public sealed class OutlookService : IOutlookService, IOutlookMailGateway, IDisposable
+public sealed class OutlookService : IOutlookMailGateway, IDisposable
 {
     private readonly IOutlookInboxReader _inboxReader;
     private readonly IOutlookBodyReader _bodyReader;
@@ -28,15 +27,6 @@ public sealed class OutlookService : IOutlookService, IOutlookMailGateway, IDisp
         _itemLauncher = itemLauncher ?? throw new ArgumentNullException(nameof(itemLauncher));
         _sessionHost = sessionHost ?? throw new ArgumentNullException(nameof(sessionHost));
     }
-
-    public async Task<List<RawEmailHeader>> FetchInboxHeaders(CancellationToken ct = default)
-        => (await _inboxReader.FetchInboxHeadersAsync(ct).ConfigureAwait(false)).ToList();
-
-    public Task OpenItem(string entryId, CancellationToken ct = default)
-        => OpenItemAsync(entryId, ct);
-
-    public Task CreateDraft(string to, string subject, string body, CancellationToken ct = default)
-        => CreateDraftAsync(new ReplyDraftRequest(to ?? string.Empty, subject ?? string.Empty, body ?? string.Empty), ct);
 
     public Task<IReadOnlyList<RawEmailHeader>> FetchInboxHeadersAsync(CancellationToken ct = default)
         => _inboxReader.FetchInboxHeadersAsync(ct);

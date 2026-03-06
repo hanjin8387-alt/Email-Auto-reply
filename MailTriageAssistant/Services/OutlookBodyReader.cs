@@ -47,11 +47,6 @@ public sealed class OutlookBodyReader : IOutlookBodyReader
         {
             if (_inFlightByEntryId.TryGetValue(entryId, out var existing))
             {
-                if (IsHigherPriority(priority, existing.Priority))
-                {
-                    return await LoadRawEmailContentCoreAsync(entryId, priority, ct).ConfigureAwait(false);
-                }
-
                 return await WaitForSharedLoadAsync(existing, ct).ConfigureAwait(false);
             }
 
@@ -184,45 +179,21 @@ public sealed class OutlookBodyReader : IOutlookBodyReader
         return inFlight;
     }
 
-    private static bool IsHigherPriority(OutlookOperationPriority candidate, OutlookOperationPriority baseline)
-        => (int)candidate < (int)baseline;
-
     private async Task<RawEmailContent> LoadRawEmailContentCoreAsync(
         string entryId,
         OutlookOperationPriority priority,
         CancellationToken ct)
     {
-        try
-        {
-            return await _sessionHost.InvokeAsync(
+        return await OutlookOperationExecutor.ExecuteAsync(
+            _sessionHost,
+            _logger,
+            operationName: "GetBody",
+            unavailableMessage: "Failed to load Outlook email body. Verify Classic Outlook state.",
+            failureMessage: "An error occurred while loading Outlook email body.",
+            operation: () => _sessionHost.InvokeAsync(
                 ctx => GetRawEmailContentInternal(ctx, entryId, Math.Max(200, _optionsMonitor.CurrentValue.MaxBodyLength)),
                 priority,
-                ct).ConfigureAwait(false);
-        }
-        catch (COMException ex)
-        {
-            _logger.LogWarning("GetBody failed: {ExceptionType} (HResult={HResult}).", ex.GetType().Name, ex.HResult);
-            _sessionHost.ResetConnection();
-            throw new InvalidOperationException("Failed to load Outlook email body. Verify Classic Outlook state.");
-        }
-        catch (NotSupportedException)
-        {
-            throw;
-        }
-        catch (InvalidOperationException)
-        {
-            throw;
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError("GetBody failed: {ExceptionType}.", ex.GetType().Name);
-            _sessionHost.ResetConnection();
-            throw new InvalidOperationException("An error occurred while loading Outlook email body.");
-        }
+                ct)).ConfigureAwait(false);
     }
 
     private static RawEmailContent GetRawEmailContentInternal(OutlookSessionContext context, string entryId, int maxBodyLength)

@@ -14,7 +14,8 @@ public sealed class ClipboardSecurityHelper : IDisposable
     private readonly IClipboardService _clipboardService;
     private readonly IOptionsMonitor<TriageSettings>? _settingsMonitor;
     private readonly ILogger<ClipboardSecurityHelper> _logger;
-    private DispatcherTimer? _clearTimer;
+    private readonly IClipboardClearTimerFactory _timerFactory;
+    private IClipboardClearTimer? _clearTimer;
     private string? _copiedContent;
     private uint _copiedSequenceNumber;
     private bool _hasCopiedSequenceNumber;
@@ -34,12 +35,14 @@ public sealed class ClipboardSecurityHelper : IDisposable
         IRedactionService redactionService,
         IClipboardService clipboardService,
         IOptionsMonitor<TriageSettings>? settingsMonitor,
-        ILogger<ClipboardSecurityHelper> logger)
+        ILogger<ClipboardSecurityHelper> logger,
+        IClipboardClearTimerFactory? timerFactory = null)
     {
         _redactionService = redactionService ?? throw new ArgumentNullException(nameof(redactionService));
         _clipboardService = clipboardService ?? throw new ArgumentNullException(nameof(clipboardService));
         _settingsMonitor = settingsMonitor;
         _logger = logger ?? NullLogger<ClipboardSecurityHelper>.Instance;
+        _timerFactory = timerFactory ?? new DispatcherClipboardClearTimerFactory();
     }
 
     public void SecureCopy(string text)
@@ -92,10 +95,8 @@ public sealed class ClipboardSecurityHelper : IDisposable
         if (_clearTimer is null)
         {
             var dispatcher = Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
-            _clearTimer = new DispatcherTimer(DispatcherPriority.Background, dispatcher)
-            {
-                Interval = TimeSpan.FromSeconds(GetAutoClearSeconds()),
-            };
+            _clearTimer = _timerFactory.Create(dispatcher, DispatcherPriority.Background);
+            _clearTimer.Interval = TimeSpan.FromSeconds(GetAutoClearSeconds());
             _clearTimer.Tick += OnClearTimerTick;
         }
 

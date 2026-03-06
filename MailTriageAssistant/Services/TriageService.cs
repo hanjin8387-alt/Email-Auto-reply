@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using MailTriageAssistant.Helpers;
 using MailTriageAssistant.Models;
 using Microsoft.Extensions.Logging;
@@ -20,7 +21,9 @@ public sealed class TriageService : ITriageService, IDisposable
 
     private readonly ILogger<TriageService> _logger;
     private readonly VipSenderProvider _vipSenderProvider;
+    private readonly object _compiledRulesGate = new();
     private CompiledTriageRules _compiledRules;
+    private long _compiledVipVersion;
     private readonly IDisposable? _settingsSubscription;
 
     public TriageService(
@@ -33,9 +36,14 @@ public sealed class TriageService : ITriageService, IDisposable
         _logger = logger ?? NullLogger<TriageService>.Instance;
 
         _compiledRules = CreateCompiledRules(optionsMonitor.CurrentValue ?? new TriageSettings());
+        _compiledVipVersion = _vipSenderProvider.Version;
         _settingsSubscription = optionsMonitor.OnChange(updated =>
         {
-            _compiledRules = CreateCompiledRules(updated ?? new TriageSettings());
+            lock (_compiledRulesGate)
+            {
+                _compiledRules = CreateCompiledRules(updated ?? new TriageSettings());
+                _compiledVipVersion = _vipSenderProvider.Version;
+            }
         });
 
         _ = _vipSenderProvider.WarmupAsync();
@@ -54,11 +62,7 @@ public sealed class TriageService : ITriageService, IDisposable
 
     private TriageResult AnalyzeInternal(string sender, string subject, string? body)
     {
-        var rules = _compiledRules;
-        if (_vipSenderProvider.Current.Count > 0)
-        {
-            rules = new CompiledTriageRules(rules.Settings, MergeVipEntries(rules.Settings, _vipSenderProvider.Current));
-        }
+        var rules = GetCompiledRules();
 
         var combined = (subject ?? string.Empty) + " " + (body ?? string.Empty);
         var matchedRules = new List<MatchedRule>(capacity: 8);
@@ -185,4 +189,24 @@ public sealed class TriageService : ITriageService, IDisposable
 
     private CompiledTriageRules CreateCompiledRules(TriageSettings settings)
         => new(settings, MergeVipEntries(settings, _vipSenderProvider.Current));
+
+    private CompiledTriageRules GetCompiledRules()
+    {
+        var vipVersion = _vipSenderProvider.Version;
+        if (vipVersion == Volatile.Read(ref _compiledVipVersion))
+        {
+            return _compiledRules;
+        }
+
+        lock (_compiledRulesGate)
+        {
+            if (vipVersion != _compiledVipVersion)
+            {
+                _compiledRules = CreateCompiledRules(_compiledRules.Settings);
+                _compiledVipVersion = vipVersion;
+            }
+
+            return _compiledRules;
+        }
+    }
 }
